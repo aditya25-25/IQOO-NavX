@@ -4,11 +4,13 @@ import {
   CornerUpRight, 
   ArrowUp, 
   Navigation, 
-  Radio, 
   Volume2, 
   VolumeX, 
   RotateCcw, 
-  Square 
+  X,
+  Cpu,
+  WifiOff,
+  CheckCircle2
 } from 'lucide-react';
 import { ManeuverType, PositionState, Route } from '../types';
 import { NavigationProgress } from '../engine/navigationController';
@@ -18,6 +20,7 @@ interface TurnGuidanceHUDProps {
   posState: PositionState;
   activeRoute: Route | null;
   isMuted: boolean;
+  isOffline: boolean;
   onToggleMute: () => void;
   onStopNav: () => void;
   onReroute: () => void;
@@ -28,6 +31,7 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
   posState,
   activeRoute,
   isMuted,
+  isOffline,
   onToggleMute,
   onStopNav,
   onReroute,
@@ -44,18 +48,18 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
     switch (type) {
       case 'turn-left':
       case 'sharp-left':
-        return <CornerUpLeft size={34} className="text-[#ff4800]" />;
+        return <CornerUpLeft size={36} className="text-[#ff4800]" strokeWidth={2.5} />;
       case 'turn-right':
       case 'sharp-right':
-        return <CornerUpRight size={34} className="text-[#ff4800]" />;
+        return <CornerUpRight size={36} className="text-[#ff4800]" strokeWidth={2.5} />;
       case 'slight-left':
-        return <CornerUpLeft size={34} className="text-[#ff4800] -rotate-12" />;
+        return <CornerUpLeft size={36} className="text-[#ff4800] -rotate-12" strokeWidth={2.5} />;
       case 'slight-right':
-        return <CornerUpRight size={34} className="text-[#ff4800] rotate-12" />;
+        return <CornerUpRight size={36} className="text-[#ff4800] rotate-12" strokeWidth={2.5} />;
       case 'arrive':
-        return <Navigation size={34} className="text-[#00e676]" />;
+        return <Navigation size={36} className="text-[#00e676]" strokeWidth={2.5} />;
       default:
-        return <ArrowUp size={34} className="text-[#ff4800]" />;
+        return <ArrowUp size={36} className="text-[#ff4800]" strokeWidth={2.5} />;
     }
   };
 
@@ -65,37 +69,43 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
   };
 
   return (
-    <div className="w-full px-4 pt-1 z-40 select-none">
-      <div className="glass-panel p-4 border border-white/10 shadow-2xl relative overflow-hidden">
-        {/* Background glow strip */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#ff4800] to-transparent opacity-80" />
+    <div className="w-full px-4 pt-1 z-40 select-none animate-in fade-in slide-in-from-top-3 duration-300">
+      <div className="p-4 rounded-3xl bg-[#0f131f]/95 backdrop-blur-2xl border border-white/10 shadow-2xl relative overflow-hidden space-y-3">
+        {/* Glow Accent Strip */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#ff4800] to-transparent opacity-90" />
 
-        <div className="flex items-center justify-between gap-4">
-          {/* Maneuver Icon */}
-          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#ff4800]/15 border border-[#ff4800]/30 flex-shrink-0 shadow-lg">
+        {/* Top Info & Action Row */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Turn Maneuver Icon */}
+          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#ff4800]/15 border border-[#ff4800]/40 flex-shrink-0 shadow-lg shadow-[#ff4800]/20">
             {renderManeuverIcon(maneuver)}
           </div>
 
-          {/* Turn text & distance */}
+          {/* Turn Instruction Text & Distance */}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black text-white tracking-tight font-display">
                 {formatDistance(distance)}
               </span>
-              <span className="text-xs uppercase font-bold text-[#ff4800] tracking-wider">
-                {progress.status === 'rerouting' ? 'REROUTING...' : 'THEN'}
+              <span className="text-xs uppercase font-extrabold text-[#ff4800] tracking-wider font-display">
+                {progress.status === 'rerouting' ? 'REROUTING OFFLINE...' : 'THEN'}
               </span>
             </div>
-            <p className="text-sm font-semibold text-neutral-200 truncate mt-0.5">
-              {instruction?.instruction || 'Continue on route'}
+            <p className="text-sm font-bold text-white truncate mt-0.5">
+              {instruction?.instruction || 'Continue along route'}
             </p>
+            {instruction?.roadName && (
+              <span className="text-[11px] text-neutral-400 font-medium truncate block">
+                on {instruction.roadName}
+              </span>
+            )}
           </div>
 
           {/* Controls: Mute, Reroute, Stop */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               onClick={onToggleMute}
-              title={isMuted ? 'Unmute voice' : 'Mute voice'}
+              title={isMuted ? 'Unmute voice guidance' : 'Mute voice guidance'}
               className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors"
             >
               {isMuted ? <VolumeX size={18} className="text-neutral-400" /> : <Volume2 size={18} className="text-[#ff4800]" />}
@@ -103,7 +113,7 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
 
             <button
               onClick={onReroute}
-              title="Recalculate offline route"
+              title="Force offline reroute"
               className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors"
             >
               <RotateCcw size={18} className={progress.status === 'rerouting' ? 'animate-spin text-amber-400' : ''} />
@@ -111,19 +121,19 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
 
             <button
               onClick={onStopNav}
-              title="Stop navigation"
+              title="Cancel navigation"
               className="p-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
             >
-              <Square size={18} />
+              <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* Lane Guidance Indicators if present */}
+        {/* Lane Guidance Indicators */}
         {instruction?.laneInfo && (
-          <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-white/5">
+          <div className="flex items-center gap-1.5 pt-2 border-t border-white/5">
             <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider mr-1">
-              Lanes:
+              Lane Assist:
             </span>
             {Array.from({ length: instruction.laneInfo.totalLanes }).map((_, idx) => {
               const isActive = instruction.laneInfo!.activeLanes.includes(idx);
@@ -132,7 +142,7 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
                   key={idx}
                   className={`w-5 h-6 rounded flex items-center justify-center text-[10px] font-bold ${
                     isActive
-                      ? 'bg-[#ff4800] text-black border border-white'
+                      ? 'bg-[#ff4800] text-black border border-white shadow-md'
                       : 'bg-neutral-800 text-neutral-500'
                   }`}
                 >
@@ -143,16 +153,32 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
           </div>
         )}
 
-        {/* Positioning status pill */}
-        <div className="flex items-center justify-between text-[11px] text-neutral-400 mt-2.5 pt-2 border-t border-white/5">
+        {/* Dynamic Status Badges Row */}
+        <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px]">
+          {/* Left: Sensor or GPS status */}
           <div className="flex items-center gap-1.5">
-            <Radio size={12} className={posState.isSensorAssisted ? 'text-cyan-400 animate-pulse' : 'text-green-400'} />
-            <span className={posState.isSensorAssisted ? 'text-cyan-300 font-semibold' : 'text-neutral-300'}>
-              {posState.isSensorAssisted ? 'Sensor-Assisted Dead Reckoning' : 'Reliable GPS Signal'}
-            </span>
+            {posState.isSensorAssisted ? (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold">
+                <Cpu size={11} className="text-cyan-400 animate-pulse" />
+                <span>SENSOR POSITIONING</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 border border-green-500/30 text-green-300 font-bold">
+                <CheckCircle2 size={11} className="text-green-400" />
+                <span>GPS SIGNAL OK</span>
+              </div>
+            )}
+
+            {isOffline && (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold">
+                <WifiOff size={11} className="text-amber-400" />
+                <span>OFFLINE NAV</span>
+              </div>
+            )}
           </div>
 
-          <span className="text-neutral-400 truncate max-w-[150px]">
+          {/* Right: Target destination label */}
+          <span className="text-neutral-400 truncate max-w-[140px] font-medium">
             To: {activeRoute?.destinationName}
           </span>
         </div>

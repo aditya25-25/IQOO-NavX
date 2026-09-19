@@ -13,7 +13,8 @@ import {
   Home, 
   Fuel, 
   Cross,
-  Train
+  Train,
+  Mic
 } from 'lucide-react';
 import { MapRegion, POI } from '../types';
 import { REGIONS } from '../data/regions';
@@ -24,7 +25,9 @@ interface SearchAndSavedModalProps {
   activeRegion: MapRegion;
   onSelectRegion: (region: MapRegion) => void;
   onSelectDestination: (poi: POI) => void;
+  onOpenVoice?: () => void;
   savedLocations: POI[];
+  initialTab?: 'places' | 'offline_maps';
 }
 
 export const SearchAndSavedModal: React.FC<SearchAndSavedModalProps> = ({
@@ -33,12 +36,14 @@ export const SearchAndSavedModal: React.FC<SearchAndSavedModalProps> = ({
   activeRegion,
   onSelectRegion,
   onSelectDestination,
+  onOpenVoice,
   savedLocations,
+  initialTab = 'places',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [regionsList, setRegionsList] = useState<MapRegion[]>(REGIONS);
-  const [activeTab, setActiveTab] = useState<'places' | 'offline_maps'>('places');
+  const [activeTab, setActiveTab] = useState<'places' | 'offline_maps'>(initialTab);
 
   if (!isOpen) return null;
 
@@ -95,7 +100,7 @@ export const SearchAndSavedModal: React.FC<SearchAndSavedModalProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-[#ff4800]" />
             <span className="text-sm font-bold uppercase tracking-wider text-white font-display">
-              Destination & Offline Maps
+              {activeTab === 'places' ? 'Search Destinations & Saved Places' : 'Regional Offline Map Packages'}
             </span>
           </div>
 
@@ -111,41 +116,56 @@ export const SearchAndSavedModal: React.FC<SearchAndSavedModalProps> = ({
         <div className="flex border-b border-white/10 p-2 gap-2 bg-black/30">
           <button
             onClick={() => setActiveTab('places')}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all font-display ${
               activeTab === 'places'
-                ? 'bg-[#ff4800] text-black shadow-lg'
+                ? 'bg-[#ff4800] text-black shadow-lg shadow-[#ff4800]/25'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            Search & Saved Places
+            Destinations & POIs
           </button>
 
           <button
             onClick={() => setActiveTab('offline_maps')}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 font-display ${
               activeTab === 'offline_maps'
-                ? 'bg-[#ff4800] text-black shadow-lg'
+                ? 'bg-[#ff4800] text-black shadow-lg shadow-[#ff4800]/25'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
             <HardDrive size={14} />
-            <span>Offline Regions ({regionsList.filter((r) => r.isDownloaded).length})</span>
+            <span>Downloaded Regions ({regionsList.filter((r) => r.isDownloaded).length})</span>
           </button>
         </div>
 
         {/* TAB 1: PLACES & DESTINATIONS */}
         {activeTab === 'places' && (
           <div className="p-4 space-y-3 flex-1 overflow-y-auto">
-            {/* Search Input Bar */}
-            <div className="relative">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="text"
-                placeholder="Search destination, college, tech park..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#181d2a] border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#ff4800]"
-              />
+            {/* Search Input Bar with Voice Trigger */}
+            <div className="relative flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="text"
+                  placeholder="Search destination, college, tech park..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#181d2a] border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#ff4800]"
+                />
+              </div>
+
+              {onOpenVoice && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenVoice();
+                  }}
+                  title="Search with Voice"
+                  className="p-2.5 rounded-2xl bg-[#ff4800]/20 hover:bg-[#ff4800]/30 text-[#ff4800] border border-[#ff4800]/40 flex-shrink-0 transition-colors"
+                >
+                  <Mic size={17} />
+                </button>
+              )}
             </div>
 
             {/* Category Filter Chips */}
@@ -157,13 +177,14 @@ export const SearchAndSavedModal: React.FC<SearchAndSavedModalProps> = ({
                 { id: 'home', label: 'Saved Home' },
                 { id: 'hospital', label: 'Hospitals' },
                 { id: 'fuel', label: 'Fuel & EV' },
+                { id: 'transit', label: 'Transit' },
               ].map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                     selectedCategory === cat.id
-                      ? 'bg-[#ff4800]/20 text-[#ff4800] border border-[#ff4800]/40'
+                      ? 'bg-[#ff4800]/20 text-[#ff4800] border border-[#ff4800]/40 font-bold'
                       : 'bg-white/5 text-neutral-400 hover:text-white border border-white/5'
                   }`}
                 >
@@ -233,7 +254,7 @@ export const SearchAndSavedModal: React.FC<SearchAndSavedModalProps> = ({
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white">
+                          <span className="text-xs font-bold text-white font-display">
                             {region.name}
                           </span>
                           {isCurrent && (

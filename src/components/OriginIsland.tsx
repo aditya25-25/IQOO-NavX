@@ -72,45 +72,46 @@ export const OriginIsland: React.FC<OriginIslandProps> = ({
     return `${mins} min`;
   };
 
+  const isNavigating = navProgress.status === 'navigating' || navProgress.status === 'rerouting';
   const maneuver = navProgress.currentInstruction?.maneuver || 'straight';
   const instruction = navProgress.currentInstruction?.instruction || 'Proceed on current route';
   const distanceToTurn = navProgress.distanceToNextTurnMeters;
 
   return (
     <div className="relative z-50 flex flex-col items-center w-full px-4 pt-2 select-none">
-      {/* Origin Island Floating Container */}
+      {/* Origin Island Floating Dynamic Container */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`cursor-pointer transition-all duration-300 ease-out backdrop-blur-xl ${
+        className={`cursor-pointer transition-all duration-300 ease-out backdrop-blur-2xl ${
           batteryState.isUltraMode
             ? 'bg-black border border-white/20 text-white rounded-2xl shadow-none'
-            : 'bg-[#10141e]/90 border border-white/10 hover:border-[#ff4800]/50 text-white rounded-3xl shadow-[0_12px_36px_rgba(0,0,0,0.65)]'
-        } ${isExpanded ? 'w-full max-w-md p-4' : 'w-auto px-4 py-2.5 flex items-center gap-3'}`}
+            : 'bg-[#0f131f]/95 border border-white/10 hover:border-[#ff4800]/50 text-white rounded-full shadow-[0_16px_40px_rgba(0,0,0,0.7)]'
+        } ${isExpanded ? 'w-full max-w-md !rounded-3xl p-4' : 'w-auto px-4 py-2.5 flex items-center gap-3'}`}
       >
         {/* COLLAPSED PILL VIEW */}
         {!isExpanded ? (
-          <div className="flex items-center gap-3.5">
-            {/* Origin Island Glow Indicator */}
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#ff4800] animate-pulse" />
-              <span className="text-[11px] font-bold tracking-wider uppercase text-neutral-400 font-display">
+          <div className="flex items-center gap-3">
+            {/* Origin Island Indicator Badge */}
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ff4800] animate-pulse shadow-[0_0_8px_#ff4800]" />
+              <span className="text-[11px] font-black tracking-wider uppercase text-neutral-300 font-display">
                 Origin Island
               </span>
             </div>
 
             <div className="h-3.5 w-px bg-white/15" />
 
-            {/* Maneuver mini preview */}
-            {navProgress.status === 'navigating' || navProgress.status === 'rerouting' ? (
+            {/* Live Navigation Step or Status */}
+            {isNavigating ? (
               <div className="flex items-center gap-2 font-display">
                 <div className="p-1 rounded-full bg-[#ff4800]/15">
-                  {getManeuverIcon(maneuver, 15)}
+                  {getManeuverIcon(maneuver, 14)}
                 </div>
-                <span className="text-xs font-semibold text-white tracking-wide">
+                <span className="text-xs font-bold text-white tracking-wide">
                   {formatDistance(distanceToTurn)}
                 </span>
-                <span className="text-[11px] text-neutral-400 truncate max-w-[120px]">
-                  {navProgress.currentInstruction?.roadName || 'Next road'}
+                <span className="text-[11px] text-neutral-400 truncate max-w-[110px]">
+                  {navProgress.currentInstruction?.roadName || 'Next turn'}
                 </span>
               </div>
             ) : (
@@ -121,7 +122,7 @@ export const OriginIsland: React.FC<OriginIslandProps> = ({
 
             <div className="h-3.5 w-px bg-white/15" />
 
-            {/* Dynamic Status Badges */}
+            {/* Dynamic Status Indicators */}
             <div className="flex items-center gap-1.5">
               {isOffline && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-400">
@@ -133,12 +134,16 @@ export const OriginIsland: React.FC<OriginIslandProps> = ({
               {posState.isSensorAssisted && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-[10px] font-bold text-cyan-400">
                   <Cpu size={10} />
-                  <span>SENSOR</span>
+                  <span>IMU</span>
                 </div>
               )}
 
               <div className="flex items-center gap-1 text-[11px] font-medium text-neutral-300">
-                {batteryState.isCharging ? <BatteryCharging size={13} className="text-green-400" /> : <Battery size={13} className={batteryState.isLowBattery ? "text-red-400" : "text-neutral-400"} />}
+                {batteryState.isCharging ? (
+                  <BatteryCharging size={13} className="text-green-400" />
+                ) : (
+                  <Battery size={13} className={batteryState.isLowBattery ? "text-red-400" : "text-neutral-400"} />
+                )}
                 <span>{Math.round(batteryState.level * 100)}%</span>
               </div>
             </div>
@@ -146,20 +151,20 @@ export const OriginIsland: React.FC<OriginIslandProps> = ({
             <ChevronDown size={14} className="text-neutral-400" />
           </div>
         ) : (
-          /* EXPANDED DETAILED CARD VIEW */
+          /* EXPANDED NATIVE-LIKE ISLAND VIEW */
           <div className="space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#ff4800]" />
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 font-display">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#ff4800] shadow-[0_0_8px_#ff4800]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-200 font-display">
                   Origin Island Live Status
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 {batteryState.isUltraMode && (
-                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#ff4800] text-black">
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#ff4800] text-black font-display">
                     Ultra Nav Mode
                   </span>
                 )}
@@ -174,69 +179,69 @@ export const OriginIsland: React.FC<OriginIslandProps> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-bold text-white font-display">
+                  <span className="text-lg font-black text-white font-display">
                     {formatDistance(distanceToTurn)}
                   </span>
-                  <span className="text-xs text-[#ff4800] font-medium uppercase tracking-wide">
-                    {navProgress.status === 'rerouting' ? 'Recalculating...' : 'Next Turn'}
+                  <span className="text-xs text-[#ff4800] font-bold uppercase tracking-wide">
+                    {navProgress.status === 'rerouting' ? 'Rerouting...' : 'Next Turn'}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-300 font-medium line-clamp-2 mt-0.5">
+                <p className="text-xs text-neutral-200 font-medium line-clamp-2 mt-0.5">
                   {instruction}
                 </p>
               </div>
             </div>
 
-            {/* Metrics Row: ETA, Distance, Speed, Sensor Mode */}
-            <div className="grid grid-cols-4 gap-2 pt-1 text-center">
+            {/* Telemetry Metrics Row */}
+            <div className="grid grid-cols-4 gap-2 pt-1 text-center font-display">
               <div className="p-2 rounded-xl bg-black/40 border border-white/5">
                 <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">ETA</span>
-                <span className="text-sm font-bold text-white font-display">
+                <span className="text-sm font-bold text-white">
                   {formatTime(navProgress.remainingDurationSeconds)}
                 </span>
               </div>
 
               <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Distance</span>
-                <span className="text-sm font-bold text-white font-display">
+                <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Remaining</span>
+                <span className="text-sm font-bold text-white">
                   {formatDistance(navProgress.remainingDistanceMeters)}
                 </span>
               </div>
 
               <div className="p-2 rounded-xl bg-black/40 border border-white/5">
                 <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Speed</span>
-                <span className="text-sm font-bold text-white font-display">
+                <span className="text-sm font-bold text-white">
                   {Math.round(posState.speed * 3.6)} km/h
                 </span>
               </div>
 
               <div className="p-2 rounded-xl bg-black/40 border border-white/5">
                 <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Positioning</span>
-                <span className={`text-[11px] font-bold font-display ${posState.isSensorAssisted ? 'text-cyan-400' : 'text-green-400'}`}>
+                <span className={`text-[11px] font-bold ${posState.isSensorAssisted ? 'text-cyan-400' : 'text-green-400'}`}>
                   {posState.isSensorAssisted ? 'IMU Sensor' : 'GPS Fix'}
                 </span>
               </div>
             </div>
 
-            {/* Status alerts banner */}
+            {/* Alert Badges */}
             {posState.isSensorAssisted && (
-              <div className="flex items-center gap-2 p-2 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 text-[11px]">
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[11px]">
                 <Cpu size={14} className="flex-shrink-0 text-cyan-400" />
-                <span>GPS weak / lost — Dead reckoning position fusion active.</span>
+                <span>GPS weak — 6-DOF Sensor Dead Reckoning positioning active.</span>
               </div>
             )}
 
             {navProgress.isOffRouteDetected && (
-              <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-300 text-[11px]">
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-950/50 border border-amber-500/30 text-amber-300 text-[11px]">
                 <ShieldAlert size={14} className="flex-shrink-0 text-amber-400" />
                 <span>Missed turn detected — Instant offline rerouting engaged.</span>
               </div>
             )}
 
-            {/* Actions */}
+            {/* Footer Action */}
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-                <Compass size={13} className="text-neutral-500" />
+                <Compass size={13} className="text-neutral-400" />
                 <span>Heading: {Math.round(posState.heading)}°</span>
               </div>
 

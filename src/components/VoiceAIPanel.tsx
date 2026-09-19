@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Send, X, Bot } from 'lucide-react';
+import { 
+  Mic, 
+  MicOff, 
+  Send, 
+  X, 
+  Volume2, 
+  CheckCircle2, 
+  Compass
+} from 'lucide-react';
 import { AICommandResult, MapRegion, POI } from '../types';
 import { parseAICommand } from '../ai/commandParser';
 import { voiceEngine } from '../voice/voiceGuidance';
+
+type VoiceState = 'idle' | 'listening' | 'processing' | 'confirmed';
 
 interface VoiceAIPanelProps {
   isOpen: boolean;
@@ -20,53 +30,60 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
   onExecuteCommand,
 }) => {
   const [inputText, setInputText] = useState('');
-  const [isListening, setIsListening] = useState(false);
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [lastResult, setLastResult] = useState<AICommandResult | null>(null);
 
   if (!isOpen) return null;
 
   const quickPrompts = [
     'Take me to college',
-    'Navigate to saved location',
+    'Navigate home',
     'Go to iQOO Innovation Labs',
+    'Find the nearest saved location',
     'Start navigation',
-    'Stop navigation',
+    'Cancel navigation',
+    'Reroute',
   ];
 
   const handleProcessInput = (text: string) => {
     if (!text.trim()) return;
 
-    const result = parseAICommand(text, activeRegion, savedLocations);
-    setLastResult(result);
-    voiceEngine.speak(result.responseVoiceText, true);
-    onExecuteCommand(result);
+    setVoiceState('processing');
+
+    setTimeout(() => {
+      const result = parseAICommand(text, activeRegion, savedLocations);
+      setLastResult(result);
+      setVoiceState('confirmed');
+      voiceEngine.speak(result.responseVoiceText, true);
+
+      // Give visual confirmation before executing action
+      setTimeout(() => {
+        onExecuteCommand(result);
+      }, 1000);
+    }, 450);
   };
 
   const handleToggleVoice = () => {
-    if (isListening) {
+    if (voiceState === 'listening') {
       voiceEngine.stopListening();
-      setIsListening(false);
+      setVoiceState('idle');
     } else {
+      setVoiceState('listening');
       const started = voiceEngine.startListening(
         (transcript) => {
           setInputText(transcript);
-          setIsListening(false);
           handleProcessInput(transcript);
         },
-        () => setIsListening(false)
+        () => setVoiceState('idle')
       );
 
-      if (started) {
-        setIsListening(true);
-      } else {
-        // Fallback simulation if browser speech recognition is not granted
-        setIsListening(true);
+      if (!started) {
+        // Voice recognition simulation fallback if browser permission is blocked
         setTimeout(() => {
           const sample = 'Take me to college';
           setInputText(sample);
-          setIsListening(false);
           handleProcessInput(sample);
-        }, 1500);
+        }, 1600);
       }
     }
   };
@@ -78,13 +95,13 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-[#ff4800]/20 text-[#ff4800]">
-              <Bot size={16} />
+              <Compass size={16} />
             </div>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-white font-display">
-                IQOO NavX AI Command Engine
+              <span className="text-sm font-bold uppercase tracking-wider text-white font-display">
+                IQOO NavX AI Voice Engine
               </span>
-              <p className="text-[10px] text-neutral-400">Navigation-Only Natural Language Parser</p>
+              <p className="text-[10px] text-neutral-400">Navigation-Focused Natural Language Commands</p>
             </div>
           </div>
 
@@ -96,25 +113,57 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
           </button>
         </div>
 
-        {/* Voice Mic Pulsing Area */}
-        <div className="flex flex-col items-center justify-center py-4 bg-[#141824] rounded-2xl border border-white/5 relative overflow-hidden">
+        {/* Dynamic Voice State Visualizer */}
+        <div className="flex flex-col items-center justify-center py-5 bg-[#141824] rounded-2xl border border-white/5 relative overflow-hidden space-y-3">
           <button
             onClick={handleToggleVoice}
-            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-              isListening
-                ? 'bg-[#ff4800] text-black shadow-[0_0_30px_#ff4800] scale-110 animate-pulse'
+            className={`w-18 h-18 rounded-full flex items-center justify-center transition-all ${
+              voiceState === 'listening'
+                ? 'bg-[#ff4800] text-black shadow-[0_0_35px_#ff4800] scale-110 animate-pulse'
+                : voiceState === 'processing'
+                ? 'bg-amber-500 text-black animate-spin'
+                : voiceState === 'confirmed'
+                ? 'bg-green-500 text-black shadow-[0_0_25px_#00e676]'
                 : 'bg-white/10 hover:bg-[#ff4800]/20 text-white hover:text-[#ff4800] border border-white/10'
             }`}
           >
-            {isListening ? <Mic size={28} /> : <MicOff size={26} />}
+            {voiceState === 'listening' ? (
+              <Mic size={30} />
+            ) : voiceState === 'confirmed' ? (
+              <CheckCircle2 size={30} />
+            ) : (
+              <MicOff size={28} />
+            )}
           </button>
 
-          <span className="text-xs font-semibold text-neutral-300 mt-3 font-display">
-            {isListening ? 'Listening for Navigation Command...' : 'Tap Mic for Voice Navigation'}
-          </span>
+          {/* Status Label */}
+          <div className="text-center font-display">
+            <span className="text-xs font-bold text-white tracking-wide block">
+              {voiceState === 'idle' && 'Tap Mic to Speak Navigation Command'}
+              {voiceState === 'listening' && 'Listening... Speak now'}
+              {voiceState === 'processing' && 'Processing navigation command...'}
+              {voiceState === 'confirmed' && 'Command Confirmed & Interpreted'}
+            </span>
+            <span className="text-[10px] text-neutral-400">
+              {voiceState === 'listening' ? 'e.g. "Take me home" or "Navigate to college"' : 'Hands-free offline speech processing'}
+            </span>
+          </div>
+
+          {/* Listening Sound Wave Animation Bars */}
+          {voiceState === 'listening' && (
+            <div className="flex items-center gap-1 pt-1">
+              {[40, 75, 100, 60, 90, 45, 80, 55].map((height, idx) => (
+                <div
+                  key={idx}
+                  style={{ height: `${height * 0.25}px` }}
+                  className="w-1 bg-[#ff4800] rounded-full animate-pulse"
+                />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Text Input & Submit */}
+        {/* Text Input & Submit Option */}
         <div className="flex gap-2">
           <input
             type="text"
@@ -137,8 +186,8 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
 
         {/* Quick Suggestion Chips */}
         <div className="space-y-1.5">
-          <span className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
-            Sample Natural Language Commands:
+          <span className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider font-display">
+            Quick Navigation Phrases:
           </span>
           <div className="flex flex-wrap gap-1.5">
             {quickPrompts.map((prompt, idx) => (
@@ -156,35 +205,36 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
           </div>
         </div>
 
-        {/* Structured Result Display */}
+        {/* Structured AI Command Result Card */}
         {lastResult && (
-          <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-1.5 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-neutral-400">Parsed Intent:</span>
-              <span className="font-mono font-bold text-[#ff4800] px-2 py-0.5 rounded bg-[#ff4800]/10 border border-[#ff4800]/30">
+          <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-neutral-400">Interpreted Intent:</span>
+              <span className="font-mono font-bold text-[#ff4800] px-2 py-0.5 rounded bg-[#ff4800]/10 border border-[#ff4800]/30 font-display">
                 {lastResult.intent}
               </span>
             </div>
 
             {lastResult.destinationName && (
-              <div className="flex items-center justify-between text-[11px]">
+              <div className="flex items-center justify-between text-xs">
                 <span className="text-neutral-400">Destination:</span>
-                <span className="font-semibold text-white">
+                <span className="font-bold text-white">
                   {lastResult.destinationName}
                 </span>
               </div>
             )}
 
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-neutral-400">Confidence:</span>
-              <span className="text-green-400 font-mono">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-neutral-400">Confidence Score:</span>
+              <span className="text-green-400 font-mono font-bold">
                 {Math.round(lastResult.confidence * 100)}%
               </span>
             </div>
 
-            <p className="text-[11px] text-neutral-300 italic pt-1 border-t border-white/5">
-              🔊 "{lastResult.responseVoiceText}"
-            </p>
+            <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-xs text-neutral-300 italic">
+              <Volume2 size={14} className="text-[#ff4800] flex-shrink-0" />
+              <span>"{lastResult.responseVoiceText}"</span>
+            </div>
           </div>
         )}
       </div>

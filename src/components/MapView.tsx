@@ -40,7 +40,7 @@ export const MapView: React.FC<MapViewProps> = ({
       attributionControl: false,
     });
 
-    // Dark carto/OpenStreetMap tiles
+    // Dark Carto basemap tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
       subdomains: 'abcd',
@@ -56,22 +56,21 @@ export const MapView: React.FC<MapViewProps> = ({
     };
   }, [activeRegion.center.lat, activeRegion.center.lng]);
 
-  // Render Offline Regional Road Graph
+  // Render Offline Regional Vector Road Graph
   useEffect(() => {
     if (!mapInstanceRef.current || !roadGraphLayerRef.current) return;
     roadGraphLayerRef.current.clearLayers();
 
-    // Render underlying vector roads from region
     activeRegion.edges.forEach((edge) => {
       const fromNode = activeRegion.nodes[edge.from];
       const toNode = activeRegion.nodes[edge.to];
       if (fromNode && toNode) {
-        let color = isUltraMode ? '#333333' : '#1e2433';
+        let color = isUltraMode ? '#222222' : '#1a2233';
         let weight = 4;
         let dashArray = undefined;
 
         if (edge.isHighway) {
-          color = isUltraMode ? '#555555' : '#2a3449';
+          color = isUltraMode ? '#444444' : '#28354f';
           weight = 6;
         }
         if (edge.isPoorConnectivity) {
@@ -88,7 +87,7 @@ export const MapView: React.FC<MapViewProps> = ({
             [fromNode.coord.lat, fromNode.coord.lng],
             [toNode.coord.lat, toNode.coord.lng],
           ],
-          { color, weight, opacity: 0.8, dashArray }
+          { color, weight, opacity: 0.85, dashArray }
         );
         line.addTo(roadGraphLayerRef.current!);
       }
@@ -107,19 +106,19 @@ export const MapView: React.FC<MapViewProps> = ({
       const isSaved = poi.isSaved;
       const markerHtml = `
         <div style="
-          background: ${isSaved ? '#ff4800' : '#1f293d'};
-          border: 2px solid ${isSaved ? '#ffffff' : '#475569'};
+          background: ${isSaved ? '#ff4800' : '#141a29'};
+          border: 2px solid ${isSaved ? '#ffffff' : '#3b4861'};
           color: #ffffff;
           border-radius: 9999px;
-          padding: 4px 8px;
+          padding: 4px 9px;
           font-size: 11px;
           font-weight: 700;
           font-family: 'Outfit', sans-serif;
           white-space: nowrap;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+          box-shadow: 0 4px 14px rgba(0,0,0,0.6);
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 5px;
           cursor: pointer;
         ">
           <span>${isSaved ? '★' : '📍'}</span>
@@ -162,40 +161,40 @@ export const MapView: React.FC<MapViewProps> = ({
         lineCap: 'round',
       }).addTo(mapInstanceRef.current);
 
-      // Fit bounds if previewing
+      // Fit bounds if previewing route
       if (activeRoute.coordinates.length > 0 && !positionState.speed) {
         mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), {
-          padding: [50, 50],
+          padding: [60, 60],
           maxZoom: 16,
         });
       }
     }
   }, [activeRoute, positionState.isSensorAssisted, isUltraMode]);
 
-  // Render Vehicle Marker & Sensor Uncertainty Radius
+  // Render Vehicle Indicator & Sensor Uncertainty Radius
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
     const lat = currentPosition.lat;
     const lng = currentPosition.lng;
 
-    // Vehicle Marker HTML
+    // Vehicle Marker
     const markerColor = positionState.isSensorAssisted ? '#00e5ff' : '#ff4800';
     const vehicleHtml = `
       <div class="vehicle-marker-wrapper" style="transform: rotate(${positionState.heading}deg);">
-        <div class="vehicle-pulse-ring" style="border-color: ${markerColor}; background: ${markerColor}22;"></div>
+        <div class="vehicle-pulse-ring" style="border-color: ${markerColor}; background: ${markerColor}25;"></div>
         <div style="
-          width: 26px;
-          height: 26px;
+          width: 28px;
+          height: 28px;
           background: ${markerColor};
           border: 3px solid #ffffff;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 16px ${markerColor};
+          box-shadow: 0 0 18px ${markerColor};
         ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="2">
             <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
           </svg>
         </div>
@@ -205,8 +204,8 @@ export const MapView: React.FC<MapViewProps> = ({
     const vehicleIcon = L.divIcon({
       html: vehicleHtml,
       className: 'vehicle-nav-icon',
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
+      iconSize: [42, 42],
+      iconAnchor: [21, 21],
     });
 
     if (!vehicleMarkerRef.current) {
@@ -234,14 +233,14 @@ export const MapView: React.FC<MapViewProps> = ({
       });
     }
 
-    // Smoothly pan with vehicle during navigation
+    // Pan with vehicle during active driving
     if (positionState.speed > 0) {
       mapInstanceRef.current.panTo([lat, lng], { animate: true, duration: 0.8 });
     }
   }, [currentPosition, positionState]);
 
   return (
-    <div className="relative w-full h-full min-h-[400px]">
+    <div className="relative w-full h-full min-h-[380px]">
       <div ref={mapContainerRef} className="w-full h-full" />
     </div>
   );

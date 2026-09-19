@@ -1,11 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { REGIONS } from './data/regions';
-import { Coordinates, MapRegion, POI, PositionState, BatteryState, AICommandResult } from './types';
+import {
+  Coordinates,
+  MapRegion,
+  POI,
+  PositionState,
+  BatteryState,
+  AICommandResult,
+} from './types';
 import { PositionFusionManager } from './sensors/positionFusion';
-import { NavigationController, NavigationProgress } from './engine/navigationController';
+import {
+  NavigationController,
+  NavigationProgress,
+} from './engine/navigationController';
 import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
+
 import { SplashScreen } from './components/SplashScreen';
 import { LandingPage } from './components/LandingPage';
 import { NavigationHeader } from './components/NavigationHeader';
@@ -24,13 +35,11 @@ import { UltraNavOverlay } from './components/UltraNavOverlay';
 import { VoiceAIPanel } from './components/VoiceAIPanel';
 import { NavXEngineDrawer } from './components/NavXEngineDrawer';
 import { BottomNavBar, TabType } from './components/BottomNavBar';
-import { 
-  Sparkles,
-  Zap
-} from 'lucide-react';
+
+import { Sparkles, Zap } from 'lucide-react';
 
 export const App: React.FC = () => {
-  // Main View State: default to 'app' for immediate navigation experience
+  // Main View State
   const [viewMode, setViewMode] = useState<'app' | 'landing'>('app');
 
   // App Launch Splash State
@@ -45,32 +54,57 @@ export const App: React.FC = () => {
   // Active Bottom Tab
   const [activeTab, setActiveTab] = useState<TabType>('map');
 
-  // Initial Origin (Home) & Destination (College)
-  const homePoi = activeRegion.pois.find((p) => p.category === 'home') || activeRegion.pois[0];
-  const collegePoi = activeRegion.pois.find((p) => p.category === 'college') || activeRegion.pois[1];
+  // Initial Origin & Destination
+  const homePoi =
+    activeRegion.pois.find((p) => p.category === 'home') ||
+    activeRegion.pois[0];
 
-  const [originCoord, setOriginCoord] = useState<Coordinates>(homePoi.coordinate);
+  const collegePoi =
+    activeRegion.pois.find((p) => p.category === 'college') ||
+    activeRegion.pois[1];
+
+  const [originCoord, setOriginCoord] = useState<Coordinates>(
+    homePoi.coordinate
+  );
+
   const [originName, setOriginName] = useState<string>(homePoi.name);
-  const [selectedDestination, setSelectedDestination] = useState<POI | null>(collegePoi);
+
+  const [selectedDestination, setSelectedDestination] =
+    useState<POI | null>(collegePoi);
+
   const [detailedPoi, setDetailedPoi] = useState<POI | null>(null);
 
   // Position Manager & Fusion Instance
-  const positionManager = useMemo(() => new PositionFusionManager(homePoi.coordinate), []);
-  const [posState, setPosState] = useState<PositionState>(positionManager.getState());
+  const positionManager = useMemo(
+    () => new PositionFusionManager(homePoi.coordinate),
+    []
+  );
+
+  const [posState, setPosState] = useState<PositionState>(
+    positionManager.getState()
+  );
 
   // Route Manager Instance
   const routeManager = useMemo(() => new RouteManager(true), []);
-  const [isOfflineForced, setIsOfflineForced] = useState<boolean>(true);
+
+  const [isOfflineForced, setIsOfflineForced] =
+    useState<boolean>(true);
 
   // Navigation Controller Instance
   const navCtrl = useMemo(
     () => new NavigationController(activeRegion, positionManager),
     [activeRegion, positionManager]
   );
-  const [navProgress, setNavProgress] = useState<NavigationProgress>(navCtrl.getProgress());
+
+  const [navProgress, setNavProgress] = useState<NavigationProgress>(
+    navCtrl.getProgress()
+  );
 
   // Battery Manager State
-  const [batteryState, setBatteryState] = useState<BatteryState>(batteryManager.getState());
+  const [batteryState, setBatteryState] = useState<BatteryState>(
+    batteryManager.getState()
+  );
+
   const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(false);
 
   // Mobile Screen Overlays & Modals
@@ -79,17 +113,28 @@ export const App: React.FC = () => {
   const [isDownloadRegionOpen, setIsDownloadRegionOpen] = useState(false);
   const [isSettingsScreenOpen, setIsSettingsScreenOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [isDestinationDetailsOpen, setIsDestinationDetailsOpen] = useState(false);
+  const [isDestinationDetailsOpen, setIsDestinationDetailsOpen] =
+    useState(false);
   const [isEngineDrawerOpen, setIsEngineDrawerOpen] = useState(false);
   const [isPhoneFrameView, setIsPhoneFrameView] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // ---------------------------------------------------------
   // Subscriptions to Reactive Engines
+  // ---------------------------------------------------------
+
   useEffect(() => {
-    const unsubPos = positionManager.subscribe((st) => setPosState(st));
-    const unsubNav = navCtrl.subscribe((pr) => setNavProgress(pr));
+    const unsubPos = positionManager.subscribe((st) => {
+      setPosState(st);
+    });
+
+    const unsubNav = navCtrl.subscribe((pr) => {
+      setNavProgress(pr);
+    });
+
     const unsubBat = batteryManager.subscribe((bt) => {
       setBatteryState(bt);
+
       if (bt.isUltraMode) {
         document.body.classList.add('ultra-mode');
       } else {
@@ -104,32 +149,58 @@ export const App: React.FC = () => {
     };
   }, [positionManager, navCtrl]);
 
-  // Sync region changes
+  // ---------------------------------------------------------
+  // Sync Region Changes
+  // ---------------------------------------------------------
+
   useEffect(() => {
     navCtrl.setRegion(activeRegion);
-    setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
-    const newHome = activeRegion.pois.find((p) => p.category === 'home') || activeRegion.pois[0];
-    const newDest = activeRegion.pois.find((p) => p.category === 'college') || activeRegion.pois[1];
+
+    setSavedLocations(
+      activeRegion.pois.filter((p) => p.isSaved)
+    );
+
+    const newHome =
+      activeRegion.pois.find((p) => p.category === 'home') ||
+      activeRegion.pois[0];
+
+    const newDest =
+      activeRegion.pois.find((p) => p.category === 'college') ||
+      activeRegion.pois[1];
+
     setOriginCoord(newHome.coordinate);
     setOriginName(newHome.name);
     setSelectedDestination(newDest);
   }, [activeRegion, navCtrl]);
 
+  // ---------------------------------------------------------
   // Toast Helper
+  // ---------------------------------------------------------
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
   };
 
-  // Launch App from Landing Page
+  // ---------------------------------------------------------
+  // Launch App
+  // ---------------------------------------------------------
+
   const handleLaunchApp = () => {
     setShowSplash(true);
     setViewMode('app');
   };
 
-  // Calculate Route Handler
+  // ---------------------------------------------------------
+  // Calculate Route
+  // ---------------------------------------------------------
+
   const handleCalculateRoute = async (dest: POI) => {
     setSelectedDestination(dest);
+
     const result = await routeManager.calculateRoute(
       originCoord,
       originName,
@@ -140,17 +211,27 @@ export const App: React.FC = () => {
 
     if (result) {
       navCtrl.startPreview(result.route);
+
       showToast(
         result.source === 'offline'
-          ? `Calculated offline graph route: ${(result.route.totalDistanceMeters / 1000).toFixed(1)} km`
-          : `Calculated online route: ${(result.route.totalDistanceMeters / 1000).toFixed(1)} km`
+          ? `Calculated offline graph route: ${(
+              result.route.totalDistanceMeters / 1000
+            ).toFixed(1)} km`
+          : `Calculated online route: ${(
+              result.route.totalDistanceMeters / 1000
+            ).toFixed(1)} km`
       );
     } else {
-      showToast('Could not calculate route for this destination.');
+      showToast(
+        'Could not calculate route for this destination.'
+      );
     }
   };
 
+  // ---------------------------------------------------------
   // Start Active Turn-by-Turn Navigation
+  // ---------------------------------------------------------
+
   const handleStartNavigation = async () => {
     if (!navProgress.activeRoute && selectedDestination) {
       const result = await routeManager.calculateRoute(
@@ -160,6 +241,7 @@ export const App: React.FC = () => {
         selectedDestination.name,
         activeRegion
       );
+
       if (result) {
         navCtrl.startNavigation(result.route);
       }
@@ -168,163 +250,422 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handle AI Command Execution
-  const handleExecuteAICommand = (result: AICommandResult) => {
+  // ---------------------------------------------------------
+  // AI Command Execution
+  // ---------------------------------------------------------
+
+  const handleExecuteAICommand = (
+    result: AICommandResult
+  ) => {
     setIsVoiceModalOpen(false);
+
     if (result.intent === 'STOP_NAV') {
       navCtrl.stopNavigation();
-      showToast('Navigation stopped via voice command');
-    } else if (result.intent === 'REROUTE') {
+
+      showToast(
+        'Navigation stopped via voice command'
+      );
+    }
+
+    else if (result.intent === 'REROUTE') {
       navCtrl.simulateMissedTurn();
-      showToast('Offline reroute triggered via voice command');
-    } else if (result.intent === 'NAVIGATE' || result.intent === 'GO_HOME' || result.intent === 'GO_SAVED') {
+
+      showToast(
+        'Offline reroute triggered via voice command'
+      );
+    }
+
+    else if (
+      result.intent === 'NAVIGATE' ||
+      result.intent === 'GO_HOME' ||
+      result.intent === 'GO_SAVED'
+    ) {
       if (result.matchedPOI) {
         handleCalculateRoute(result.matchedPOI);
-        setTimeout(() => navCtrl.startNavigation(), 600);
-      } else if (selectedDestination) {
+
+        setTimeout(() => {
+          navCtrl.startNavigation();
+        }, 600);
+      }
+
+      else if (selectedDestination) {
         handleCalculateRoute(selectedDestination);
-        setTimeout(() => navCtrl.startNavigation(), 600);
+
+        setTimeout(() => {
+          navCtrl.startNavigation();
+        }, 600);
       }
     }
   };
 
-  // Tab Navigation Router
+  // ---------------------------------------------------------
+  // Bottom Tab Navigation
+  // ---------------------------------------------------------
+
   const handleSelectTab = (tab: TabType) => {
     setActiveTab(tab);
+
     if (tab === 'saved') {
       setIsSavedLocationsOpen(true);
-    } else if (tab === 'regions') {
+    }
+
+    else if (tab === 'regions') {
       setIsDownloadRegionOpen(true);
-    } else if (tab === 'settings') {
+    }
+
+    else if (tab === 'settings') {
       setIsSettingsScreenOpen(true);
     }
   };
 
+  // ---------------------------------------------------------
   // Toggle Saved POI
+  // ---------------------------------------------------------
+
   const handleToggleSavePOI = (poi: POI) => {
     setSavedLocations((prev) => {
-      const exists = prev.some((p) => p.id === poi.id);
+      const exists = prev.some(
+        (p) => p.id === poi.id
+      );
+
       if (exists) {
-        showToast(`Removed "${poi.name}" from saved places`);
-        return prev.filter((p) => p.id !== poi.id);
-      } else {
-        showToast(`Saved "${poi.name}" to favorites`);
-        return [...prev, { ...poi, isSaved: true }];
+        showToast(
+          `Removed "${poi.name}" from saved places`
+        );
+
+        return prev.filter(
+          (p) => p.id !== poi.id
+        );
       }
+
+      showToast(
+        `Saved "${poi.name}" to favorites`
+      );
+
+      return [
+        ...prev,
+        {
+          ...poi,
+          isSaved: true,
+        },
+      ];
     });
   };
 
-  // Simulation Scenario Dispatcher
+  // ---------------------------------------------------------
+  // 15-Step Hackathon Demo Dispatcher
+  // ---------------------------------------------------------
+
   const handleRunDemoStep = (stepNumber: number) => {
     switch (stepNumber) {
+      // -----------------------------------------------------
+      // STEP 1 — Launch
+      // -----------------------------------------------------
+
       case 1:
         setShowSplash(true);
+
+        showToast(
+          'Step 1: Launching IQOO NavX'
+        );
+
         break;
+
+      // -----------------------------------------------------
+      // STEP 2 — Offline Regional Maps
+      // -----------------------------------------------------
+
       case 2:
         setIsDownloadRegionOpen(true);
-        showToast('Step 2: Viewing Regional Offline Map Packages');
+
+        showToast(
+          'Step 2: Regional Offline Maps'
+        );
+
         break;
+
+      // -----------------------------------------------------
+      // STEP 3 — Select College
+      // -----------------------------------------------------
+
       case 3:
         if (collegePoi) {
           setSelectedDestination(collegePoi);
           setDetailedPoi(collegePoi);
           setIsDestinationDetailsOpen(true);
         }
-        showToast('Step 3: Selected Destination (College)');
+
+        showToast(
+          'Step 3: College selected as destination'
+        );
+
         break;
+
+      // -----------------------------------------------------
+      // STEP 4 — Calculate Offline Route
+      // -----------------------------------------------------
+
       case 4:
-        if (collegePoi) handleCalculateRoute(collegePoi);
-        showToast('Step 4: Calculated Offline Graph Route');
+        if (collegePoi) {
+          handleCalculateRoute(collegePoi);
+        }
+
+        showToast(
+          'Step 4: Offline route calculated'
+        );
+
         break;
+
+      // -----------------------------------------------------
+      // STEP 5 — Start Navigation
+      // -----------------------------------------------------
+
       case 5:
         handleStartNavigation();
-        showToast('Step 5: Started Turn-by-Turn Navigation');
+
+        showToast(
+          'Step 5: Turn-by-turn navigation started'
+        );
+
         break;
+
+      // -----------------------------------------------------
+      // STEP 6 — Internet OFF
+      // -----------------------------------------------------
+
       case 6:
+        setIsOfflineForced(true);
+        routeManager.setOfflineSimulation(true);
+
+        showToast(
+          'Step 6: Internet connection disabled'
+        );
+
+        break;
+
+      // -----------------------------------------------------
+      // STEP 7 — Offline Navigation Continues
+      // -----------------------------------------------------
+
       case 7:
         setIsOfflineForced(true);
         routeManager.setOfflineSimulation(true);
-        showToast('Step 6 & 7: Internet Disabled — Offline Navigation Active');
+
+        showToast(
+          'Step 7: Offline navigation continues'
+        );
+
         break;
-      case 9:
-      case 10:
+
+      // -----------------------------------------------------
+      // STEP 8 — GPS Weak
+      // -----------------------------------------------------
+
+      case 8:
         positionManager.setGpsQuality('weak');
-        showToast('Step 9 & 10: GPS Weak — 6-DOF Sensor Dead Reckoning Active');
+
+        showToast(
+          'Step 8: GPS weak — sensor-assisted positioning active'
+        );
+
         break;
+
+      // -----------------------------------------------------
+      // STEP 9 — Dead Reckoning
+      // -----------------------------------------------------
+
+      case 9:
+        showToast(
+          'Step 9: Dead reckoning maintains position'
+        );
+
+        break;
+
+      // -----------------------------------------------------
+      // STEP 10 — GPS Restored
+      // -----------------------------------------------------
+
+      case 10:
+        positionManager.setGpsQuality(
+          'strong',
+          collegePoi.coordinate
+        );
+
+        showToast(
+          'Step 10: GPS restored — position smoothly corrected'
+        );
+
+        break;
+
+      // -----------------------------------------------------
+      // STEP 11 — AI Voice
+      // -----------------------------------------------------
+
       case 11:
-      case 12:
-        navCtrl.simulateMissedTurn();
-        showToast('Step 11 & 12: Missed Turn Detected — Instant Offline Reroute');
-        break;
-      case 13:
-      case 14:
-        positionManager.setGpsQuality('strong');
-        showToast('Step 13 & 14: Restored GPS — Position Corrected Smoothly');
-        break;
-      case 15:
         setIsVoiceModalOpen(true);
-        showToast('Step 15: AI Voice Navigation Engine Ready');
+
+        showToast(
+          'Step 11: AI voice navigation ready'
+        );
+
         break;
-      case 17:
-        showToast('Step 17: Origin Island Live Status Component Active');
+
+      // -----------------------------------------------------
+      // STEP 12 — Origin Island
+      // -----------------------------------------------------
+
+      case 12:
+        showToast(
+          'Step 12: Origin Island live navigation status active'
+        );
+
         break;
-      case 18:
-      case 19:
+
+      // -----------------------------------------------------
+      // STEP 13 — Low Battery
+      // -----------------------------------------------------
+
+      case 13:
+        batteryManager.setSimulatedBatteryLevel(0.15);
+
+        showToast(
+          'Step 13: Low battery detected'
+        );
+
+        break;
+
+      // -----------------------------------------------------
+      // STEP 14 — Ultra Navigation Mode
+      // -----------------------------------------------------
+
+      case 14:
         batteryManager.toggleUltraMode(true);
-        showToast('Step 18 & 19: Low Battery — Ultra Navigation Mode Active');
+
+        showToast(
+          'Step 14: Ultra Navigation Mode activated'
+        );
+
         break;
+
+      // -----------------------------------------------------
+      // STEP 15 — Continue Navigation
+      // -----------------------------------------------------
+
+      case 15:
+        showToast(
+          'Step 15: Navigation continues in Ultra Mode'
+        );
+
+        break;
+
       default:
         break;
     }
   };
 
-  const isNavigating = navProgress.status === 'navigating' || navProgress.status === 'rerouting';
-  const isPreviewing = navProgress.status === 'previewing' && navProgress.activeRoute !== null;
-  const isIdle =
-  navProgress.status === 'idle' ||
-  navProgress.status === 'arrived';
+  // ---------------------------------------------------------
+  // Navigation State Helpers
+  // ---------------------------------------------------------
 
-  // If user explicitly switched to 'landing' overview
+  const isNavigating =
+    navProgress.status === 'navigating' ||
+    navProgress.status === 'rerouting';
+
+  const isPreviewing =
+    navProgress.status === 'previewing' &&
+    navProgress.activeRoute !== null;
+
+  const isIdle =
+    navProgress.status === 'idle' ||
+    navProgress.status === 'arrived';
+
+  // ---------------------------------------------------------
+  // Landing Page
+  // ---------------------------------------------------------
+
   if (viewMode === 'landing') {
-    return <LandingPage onLaunchApp={handleLaunchApp} />;
+    return (
+      <LandingPage
+        onLaunchApp={handleLaunchApp}
+      />
+    );
   }
+
+  // ---------------------------------------------------------
+  // Main Application
+  // ---------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-[#08090A] text-[#F5F7F8] flex flex-col items-center justify-start relative overflow-x-hidden font-sans">
-      {/* 1. App Launch Splash Screen */}
+
+      {/* ---------------------------------------------------
+          1. App Launch Splash Screen
+      --------------------------------------------------- */}
+
       {showSplash && (
-        <SplashScreen onComplete={() => setShowSplash(false)} />
+        <SplashScreen
+          onComplete={() => setShowSplash(false)}
+        />
       )}
 
-      {/* Reusable Application Header Shell (Section 5) */}
+      {/* ---------------------------------------------------
+          2. Application Header
+      --------------------------------------------------- */}
+
       <NavigationHeader
         isNavigating={isNavigating}
         isOffline={isOfflineForced}
         posState={posState}
         batteryState={batteryState}
-        onBackOrStopNav={() => navCtrl.stopNavigation()}
-        onToggleViewMode={() => setViewMode('landing')}
+        onBackOrStopNav={() =>
+          navCtrl.stopNavigation()
+        }
+        onToggleViewMode={() =>
+          setViewMode('landing')
+        }
         isPhoneFrameView={isPhoneFrameView}
-        onTogglePhoneFrame={() => setIsPhoneFrameView(!isPhoneFrameView)}
+        onTogglePhoneFrame={() =>
+          setIsPhoneFrameView(!isPhoneFrameView)
+        }
       />
 
-      {/* Main Content Container: Mobile-First Viewport */}
-      <main className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
-        isPhoneFrameView ? 'max-w-md' : 'max-w-6xl'
-      }`}>
-        <div className={`w-full flex-1 flex flex-col bg-[#08090A] sm:rounded-3xl border border-[#2B2F33] shadow-2xl relative overflow-hidden ${
-          isPhoneFrameView ? 'min-h-[820px] max-h-[880px]' : 'min-h-[720px]'
-        }`}>
-          {/* 1. Origin Island floating status component */}
+      {/* ---------------------------------------------------
+          3. Main Content Container
+      --------------------------------------------------- */}
+
+      <main
+        className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
+          isPhoneFrameView
+            ? 'max-w-md'
+            : 'max-w-6xl'
+        }`}
+      >
+        <div
+          className={`w-full flex-1 flex flex-col bg-[#08090A] sm:rounded-3xl border border-[#2B2F33] shadow-2xl relative overflow-hidden ${
+            isPhoneFrameView
+              ? 'min-h-[820px] max-h-[880px]'
+              : 'min-h-[720px]'
+          }`}
+        >
+
+          {/* ------------------------------------------------
+              4. Origin Island
+          ------------------------------------------------ */}
+
           <OriginIsland
             navProgress={navProgress}
             posState={posState}
             batteryState={batteryState}
             isOffline={isOfflineForced}
-            onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+            onToggleUltraMode={() =>
+              batteryManager.toggleUltraMode()
+            }
           />
 
-          {/* 2. Top Turn Guidance HUD (When Navigating) */}
+          {/* ------------------------------------------------
+              5. Turn Guidance HUD
+          ------------------------------------------------ */}
+
           <TurnGuidanceHUD
             progress={navProgress}
             posState={posState}
@@ -333,30 +674,51 @@ export const App: React.FC = () => {
             isOffline={isOfflineForced}
             onToggleMute={() => {
               const muted = !isVoiceMuted;
+
               setIsVoiceMuted(muted);
+
               voiceEngine.setMuted(muted);
             }}
-            onStopNav={() => navCtrl.stopNavigation()}
-            onReroute={() => navCtrl.simulateMissedTurn()}
-            onOpenVoice={() => setIsVoiceModalOpen(true)}
+            onStopNav={() =>
+              navCtrl.stopNavigation()
+            }
+            onReroute={() =>
+              navCtrl.simulateMissedTurn()
+            }
+            onOpenVoice={() =>
+              setIsVoiceModalOpen(true)
+            }
           />
 
-          {/* 3. Interactive Map View (Dominating Viewport) */}
+          {/* ------------------------------------------------
+              6. Interactive Map View
+          ------------------------------------------------ */}
+
           <div className="flex-1 w-full relative min-h-[420px]">
+
             <MapView
-              currentPosition={posState.currentPosition}
+              currentPosition={
+                posState.currentPosition
+              }
               positionState={posState}
-              activeRoute={navProgress.activeRoute}
+              activeRoute={
+                navProgress.activeRoute
+              }
               activeRegion={activeRegion}
               savedLocations={savedLocations}
-              isUltraMode={batteryState.isUltraMode}
+              isUltraMode={
+                batteryState.isUltraMode
+              }
               onSelectPOI={(poi) => {
                 setDetailedPoi(poi);
                 setIsDestinationDetailsOpen(true);
               }}
             />
 
-            {/* 4. Home Screen Overlay (When Idle: floating search & quick chips) */}
+            {/* ------------------------------------------------
+                7. Home Screen Overlay
+            ------------------------------------------------ */}
+
             {isIdle && (
               <HomeScreenOverlay
                 activeRegion={activeRegion}
@@ -364,69 +726,131 @@ export const App: React.FC = () => {
                 posState={posState}
                 batteryState={batteryState}
                 isOffline={isOfflineForced}
-                onOpenSearch={() => setIsSearchScreenOpen(true)}
-                onOpenVoice={() => setIsVoiceModalOpen(true)}
-                onOpenSavedLocations={() => setIsSavedLocationsOpen(true)}
-                onOpenDownloadRegion={() => setIsDownloadRegionOpen(true)}
+                onOpenSearch={() =>
+                  setIsSearchScreenOpen(true)
+                }
+                onOpenVoice={() =>
+                  setIsVoiceModalOpen(true)
+                }
+                onOpenSavedLocations={() =>
+                  setIsSavedLocationsOpen(true)
+                }
+                onOpenDownloadRegion={() =>
+                  setIsDownloadRegionOpen(true)
+                }
                 onSelectDestination={(poi) => {
                   setDetailedPoi(poi);
-                  setIsDestinationDetailsOpen(true);
+                  setIsDestinationDetailsOpen(
+                    true
+                  );
                 }}
-                onOpenEngineDrawer={() => setIsEngineDrawerOpen(true)}
+                onOpenEngineDrawer={() =>
+                  setIsEngineDrawerOpen(true)
+                }
               />
             )}
 
-            {/* Float Route Context Card if Navigating */}
-            {isNavigating && navProgress.activeRoute && (
-              <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
-                <RouteContextCard context={navProgress.activeRoute.context} />
-              </div>
-            )}
+            {/* ------------------------------------------------
+                8. Route Context Card
+            ------------------------------------------------ */}
+
+            {isNavigating &&
+              navProgress.activeRoute && (
+                <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
+                  <RouteContextCard
+                    context={
+                      navProgress.activeRoute.context
+                    }
+                  />
+                </div>
+              )}
           </div>
 
-          {/* 5. Route Preview Screen (When Previewing Route) */}
-          {isPreviewing && navProgress.activeRoute && (
-            <RoutePreviewCard
-              route={navProgress.activeRoute}
-              onStartNavigation={handleStartNavigation}
-              onCancel={() => navCtrl.stopNavigation()}
-            />
-          )}
+          {/* ------------------------------------------------
+              9. Route Preview Screen
+          ------------------------------------------------ */}
 
-          {/* 6. Battery Warning Banner (< 20%) */}
-          {batteryState.isLowBattery && !batteryState.isUltraMode && (
-            <div className="mx-4 my-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-500/40 text-amber-200 flex items-center justify-between z-30 select-none">
-              <div className="flex items-center gap-2">
-                <Zap size={16} className="text-[#FFD400] animate-pulse" />
-                <span className="text-xs font-semibold">
-                  Battery low ({Math.round(batteryState.level * 100)}%) — Ultra Navigation Mode recommended
-                </span>
+          {isPreviewing &&
+            navProgress.activeRoute && (
+              <RoutePreviewCard
+                route={
+                  navProgress.activeRoute
+                }
+                onStartNavigation={
+                  handleStartNavigation
+                }
+                onCancel={() =>
+                  navCtrl.stopNavigation()
+                }
+              />
+            )}
+
+          {/* ------------------------------------------------
+              10. Battery Warning
+          ------------------------------------------------ */}
+
+          {batteryState.isLowBattery &&
+            !batteryState.isUltraMode && (
+              <div className="mx-4 my-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-500/40 text-amber-200 flex items-center justify-between z-30 select-none">
+
+                <div className="flex items-center gap-2">
+                  <Zap
+                    size={16}
+                    className="text-[#FFD400] animate-pulse"
+                  />
+
+                  <span className="text-xs font-semibold">
+                    Battery low (
+                    {Math.round(
+                      batteryState.level * 100
+                    )}
+                    %) — Ultra Navigation Mode
+                    recommended
+                  </span>
+                </div>
+
+                <button
+                  onClick={() =>
+                    batteryManager.toggleUltraMode(
+                      true
+                    )
+                  }
+                  className="px-3 py-1 rounded-xl bg-[#FFD400] text-black font-extrabold text-xs hover:bg-[#e6bf00] transition-colors font-display"
+                >
+                  Enable
+                </button>
               </div>
-              <button
-                onClick={() => batteryManager.toggleUltraMode(true)}
-                className="px-3 py-1 rounded-xl bg-[#FFD400] text-black font-extrabold text-xs hover:bg-[#e6bf00] transition-colors font-display"
-              >
-                Enable
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* 7. Bottom Navigation Bar */}
+          {/* ------------------------------------------------
+              11. Bottom Navigation
+          ------------------------------------------------ */}
+
           <BottomNavBar
             activeTab={activeTab}
             onChangeTab={handleSelectTab}
             isNavigating={isNavigating}
           />
 
-          {/* Toast Notification Banner */}
+          {/* ------------------------------------------------
+              12. Toast Notification
+          ------------------------------------------------ */}
+
           {toastMessage && (
             <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#FFD400] text-black font-extrabold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 font-display">
+
               <Sparkles size={14} />
-              <span>{toastMessage}</span>
+
+              <span>
+                {toastMessage}
+              </span>
             </div>
           )}
 
-          {/* Ultra Navigation Mode Minimalist Overlay */}
+          {/* ------------------------------------------------
+              13. Ultra Navigation Overlay
+          ------------------------------------------------ */}
+
           {batteryState.isUltraMode && (
             <UltraNavOverlay
               navProgress={navProgress}
@@ -434,30 +858,60 @@ export const App: React.FC = () => {
               batteryState={batteryState}
               isVoiceMuted={isVoiceMuted}
               onToggleMute={() => {
-                const muted = !isVoiceMuted;
+                const muted =
+                  !isVoiceMuted;
+
                 setIsVoiceMuted(muted);
-                voiceEngine.setMuted(muted);
+
+                voiceEngine.setMuted(
+                  muted
+                );
               }}
-              onExitUltraMode={() => batteryManager.toggleUltraMode(false)}
+              onExitUltraMode={() =>
+                batteryManager.toggleUltraMode(
+                  false
+                )
+              }
             />
           )}
         </div>
       </main>
 
-      {/* NavX Technology & Simulation Drawer */}
+      {/* -----------------------------------------------------
+          14. NavX Technology & Simulation Drawer
+      ----------------------------------------------------- */}
+
       <NavXEngineDrawer
         isOpen={isEngineDrawerOpen}
-        onClose={() => setIsEngineDrawerOpen(false)}
+        onClose={() =>
+          setIsEngineDrawerOpen(false)
+        }
         isOffline={isOfflineForced}
         onToggleInternet={() => {
-          const nextState = !isOfflineForced;
-          setIsOfflineForced(nextState);
-          routeManager.setOfflineSimulation(nextState);
-          showToast(nextState ? 'Simulating Offline Mode (No Internet)' : 'Simulating Online Mode');
+          const nextState =
+            !isOfflineForced;
+
+          setIsOfflineForced(
+            nextState
+          );
+
+          routeManager.setOfflineSimulation(
+            nextState
+          );
+
+          showToast(
+            nextState
+              ? 'Simulating Offline Mode (No Internet)'
+              : 'Simulating Online Mode'
+          );
         }}
         posState={posState}
         onSetGpsQuality={(quality) => {
-          positionManager.setGpsQuality(quality, collegePoi.coordinate);
+          positionManager.setGpsQuality(
+            quality,
+            collegePoi.coordinate
+          );
+
           showToast(
             quality === 'weak'
               ? 'GPS Weak — Position Fusion switched to IMU Dead Reckoning'
@@ -466,42 +920,85 @@ export const App: React.FC = () => {
         }}
         onSimulateMissedTurn={() => {
           navCtrl.simulateMissedTurn();
-          showToast('Missed turn simulated! Calculating offline alternative route...');
+
+          showToast(
+            'Missed turn simulated! Calculating offline alternative route...'
+          );
         }}
         batteryState={batteryState}
-        onSetBatteryLevel={(lvl) => batteryManager.setSimulatedBatteryLevel(lvl)}
-        onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+        onSetBatteryLevel={(lvl) =>
+          batteryManager.setSimulatedBatteryLevel(
+            lvl
+          )
+        }
+        onToggleUltraMode={() =>
+          batteryManager.toggleUltraMode()
+        }
         navProgress={navProgress}
-        onRunAutoDemoStep={(step) => handleRunDemoStep(step)}
+        onRunAutoDemoStep={(step) =>
+          handleRunDemoStep(step)
+        }
       />
 
-      {/* Mobile Screens & Modals */}
+      {/* -----------------------------------------------------
+          15. Search Screen
+      ----------------------------------------------------- */}
+
       <SearchScreen
         isOpen={isSearchScreenOpen}
-        onClose={() => setIsSearchScreenOpen(false)}
+        onClose={() =>
+          setIsSearchScreenOpen(false)
+        }
         activeRegion={activeRegion}
-        currentCoord={posState.currentPosition}
+        currentCoord={
+          posState.currentPosition
+        }
         savedLocations={savedLocations}
         onSelectDestination={(poi) => {
           setIsSearchScreenOpen(false);
           setDetailedPoi(poi);
           setIsDestinationDetailsOpen(true);
         }}
-        onOpenVoice={() => setIsVoiceModalOpen(true)}
+        onOpenVoice={() =>
+          setIsVoiceModalOpen(true)
+        }
       />
 
+      {/* -----------------------------------------------------
+          16. Destination Details
+      ----------------------------------------------------- */}
+
       <DestinationDetailsModal
-        isOpen={isDestinationDetailsOpen}
+        isOpen={
+          isDestinationDetailsOpen
+        }
         poi={detailedPoi}
-        onClose={() => setIsDestinationDetailsOpen(false)}
-        currentCoord={posState.currentPosition}
+        onClose={() =>
+          setIsDestinationDetailsOpen(
+            false
+          )
+        }
+        currentCoord={
+          posState.currentPosition
+        }
         onStartRoute={(poi) => {
-          setIsDestinationDetailsOpen(false);
+          setIsDestinationDetailsOpen(
+            false
+          );
+
           handleCalculateRoute(poi);
         }}
-        onToggleSave={handleToggleSavePOI}
-        onOpenVoice={() => setIsVoiceModalOpen(true)}
+        onToggleSave={
+          handleToggleSavePOI
+        }
+        onOpenVoice={() =>
+          setIsVoiceModalOpen(true)
+        }
       />
+
+      {/* -----------------------------------------------------
+          17. Saved Locations
+      ----------------------------------------------------- */}
 
       <SavedLocationsScreen
         isOpen={isSavedLocationsOpen}
@@ -510,23 +1007,47 @@ export const App: React.FC = () => {
           setActiveTab('map');
         }}
         savedLocations={savedLocations}
-        currentCoord={posState.currentPosition}
+        currentCoord={
+          posState.currentPosition
+        }
         onSelectDestination={(poi) => {
           setIsSavedLocationsOpen(false);
           handleCalculateRoute(poi);
         }}
         onAddLocation={(newPoi) => {
-          setSavedLocations((prev) => [...prev, newPoi]);
-          showToast(`Added "${newPoi.name}" to saved locations`);
+          setSavedLocations(
+            (prev) => [
+              ...prev,
+              newPoi,
+            ]
+          );
+
+          showToast(
+            `Added "${newPoi.name}" to saved locations`
+          );
         }}
         onDeleteLocation={(id) => {
-          setSavedLocations((prev) => prev.filter((p) => p.id !== id));
-          showToast('Removed saved location');
+          setSavedLocations(
+            (prev) =>
+              prev.filter(
+                (p) => p.id !== id
+              )
+          );
+
+          showToast(
+            'Removed saved location'
+          );
         }}
       />
 
+      {/* -----------------------------------------------------
+          18. Download Region
+      ----------------------------------------------------- */}
+
       <DownloadRegionScreen
-        isOpen={isDownloadRegionOpen}
+        isOpen={
+          isDownloadRegionOpen
+        }
         onClose={() => {
           setIsDownloadRegionOpen(false);
           setActiveTab('map');
@@ -534,32 +1055,58 @@ export const App: React.FC = () => {
         activeRegion={activeRegion}
         onSelectRegion={(reg) => {
           setActiveRegion(reg);
-          showToast(`Active offline region set to: ${reg.name}`);
+
+          showToast(
+            `Active offline region set to: ${reg.name}`
+          );
         }}
       />
 
+      {/* -----------------------------------------------------
+          19. Settings
+      ----------------------------------------------------- */}
+
       <SettingsScreen
-        isOpen={isSettingsScreenOpen}
+        isOpen={
+          isSettingsScreenOpen
+        }
         onClose={() => {
           setIsSettingsScreenOpen(false);
           setActiveTab('map');
         }}
         batteryState={batteryState}
-        onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+        onToggleUltraMode={() =>
+          batteryManager.toggleUltraMode()
+        }
         isVoiceMuted={isVoiceMuted}
         onToggleMute={() => {
-          const muted = !isVoiceMuted;
-          setIsVoiceMuted(muted);
-          voiceEngine.setMuted(muted);
+          const muted =
+            !isVoiceMuted;
+
+          setIsVoiceMuted(
+            muted
+          );
+
+          voiceEngine.setMuted(
+            muted
+          );
         }}
       />
 
+      {/* -----------------------------------------------------
+          20. AI Voice Panel
+      ----------------------------------------------------- */}
+
       <VoiceAIPanel
         isOpen={isVoiceModalOpen}
-        onClose={() => setIsVoiceModalOpen(false)}
+        onClose={() =>
+          setIsVoiceModalOpen(false)
+        }
         activeRegion={activeRegion}
         savedLocations={savedLocations}
-        onExecuteCommand={handleExecuteAICommand}
+        onExecuteCommand={
+          handleExecuteAICommand
+        }
       />
     </div>
   );

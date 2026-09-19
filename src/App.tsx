@@ -8,11 +8,11 @@ import {
   BatteryState,
   AICommandResult,
 } from './types';
-import { PositionFusionManager } from './sensors/positionFusion';
 import {
   NavigationController,
   NavigationProgress,
 } from './engine/navigationController';
+import { PositionFusionManager } from './sensors/positionFusion';
 import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
@@ -39,22 +39,30 @@ import { BottomNavBar, TabType } from './components/BottomNavBar';
 import { Sparkles, Zap } from 'lucide-react';
 
 export const App: React.FC = () => {
-  // Main View State
+  // =========================================================
+  // MAIN VIEW STATE
+  // =========================================================
+
   const [viewMode, setViewMode] = useState<'app' | 'landing'>('app');
 
-  // App Launch Splash State
   const [showSplash, setShowSplash] = useState(false);
 
-  // Region & Saved Places
+  // =========================================================
+  // REGION & SAVED LOCATIONS
+  // =========================================================
+
   const [activeRegion, setActiveRegion] = useState<MapRegion>(REGIONS[0]);
+
   const [savedLocations, setSavedLocations] = useState<POI[]>(
     REGIONS[0].pois.filter((p) => p.isSaved)
   );
 
-  // Active Bottom Tab
   const [activeTab, setActiveTab] = useState<TabType>('map');
 
-  // Initial Origin & Destination
+  // =========================================================
+  // INITIAL ORIGIN & DESTINATION
+  // =========================================================
+
   const homePoi =
     activeRegion.pois.find((p) => p.category === 'home') ||
     activeRegion.pois[0];
@@ -67,14 +75,19 @@ export const App: React.FC = () => {
     homePoi.coordinate
   );
 
-  const [originName, setOriginName] = useState<string>(homePoi.name);
+  const [originName, setOriginName] = useState<string>(
+    homePoi.name
+  );
 
   const [selectedDestination, setSelectedDestination] =
     useState<POI | null>(collegePoi);
 
   const [detailedPoi, setDetailedPoi] = useState<POI | null>(null);
 
-  // Position Manager & Fusion Instance
+  // =========================================================
+  // POSITION FUSION
+  // =========================================================
+
   const positionManager = useMemo(
     () => new PositionFusionManager(homePoi.coordinate),
     []
@@ -84,58 +97,97 @@ export const App: React.FC = () => {
     positionManager.getState()
   );
 
-  // Route Manager Instance
-  const routeManager = useMemo(() => new RouteManager(true), []);
+  // =========================================================
+  // ROUTE MANAGER
+  // =========================================================
 
+  const routeManager = useMemo(
+    () => new RouteManager(true),
+    []
+  );
+
+  // Start ONLINE.
+  // Demo switches to offline at Step 6.
   const [isOfflineForced, setIsOfflineForced] =
-    useState<boolean>(true);
+    useState<boolean>(false);
 
-  // Navigation Controller Instance
+  // =========================================================
+  // NAVIGATION CONTROLLER
+  // =========================================================
+
   const navCtrl = useMemo(
-    () => new NavigationController(activeRegion, positionManager),
+    () => new NavigationController(
+      activeRegion,
+      positionManager
+    ),
     [activeRegion, positionManager]
   );
 
-  const [navProgress, setNavProgress] = useState<NavigationProgress>(
-    navCtrl.getProgress()
-  );
+  const [navProgress, setNavProgress] =
+    useState<NavigationProgress>(
+      navCtrl.getProgress()
+    );
 
-  // Battery Manager State
-  const [batteryState, setBatteryState] = useState<BatteryState>(
-    batteryManager.getState()
-  );
+  // =========================================================
+  // BATTERY
+  // =========================================================
 
-  const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(false);
+  const [batteryState, setBatteryState] =
+    useState<BatteryState>(
+      batteryManager.getState()
+    );
 
-  // Mobile Screen Overlays & Modals
-  const [isSearchScreenOpen, setIsSearchScreenOpen] = useState(false);
-  const [isSavedLocationsOpen, setIsSavedLocationsOpen] = useState(false);
-  const [isDownloadRegionOpen, setIsDownloadRegionOpen] = useState(false);
-  const [isSettingsScreenOpen, setIsSettingsScreenOpen] = useState(false);
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] =
+    useState<boolean>(false);
+
+  // =========================================================
+  // UI / MODAL STATE
+  // =========================================================
+
+  const [isSearchScreenOpen, setIsSearchScreenOpen] =
+    useState(false);
+
+  const [isSavedLocationsOpen, setIsSavedLocationsOpen] =
+    useState(false);
+
+  const [isDownloadRegionOpen, setIsDownloadRegionOpen] =
+    useState(false);
+
+  const [isSettingsScreenOpen, setIsSettingsScreenOpen] =
+    useState(false);
+
+  const [isVoiceModalOpen, setIsVoiceModalOpen] =
+    useState(false);
+
   const [isDestinationDetailsOpen, setIsDestinationDetailsOpen] =
     useState(false);
-  const [isEngineDrawerOpen, setIsEngineDrawerOpen] = useState(false);
-  const [isPhoneFrameView, setIsPhoneFrameView] = useState(true);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // ---------------------------------------------------------
-  // Subscriptions to Reactive Engines
-  // ---------------------------------------------------------
+  const [isEngineDrawerOpen, setIsEngineDrawerOpen] =
+    useState(false);
+
+  const [isPhoneFrameView, setIsPhoneFrameView] =
+    useState(true);
+
+  const [toastMessage, setToastMessage] =
+    useState<string | null>(null);
+
+  // =========================================================
+  // REACTIVE ENGINE SUBSCRIPTIONS
+  // =========================================================
 
   useEffect(() => {
-    const unsubPos = positionManager.subscribe((st) => {
-      setPosState(st);
+    const unsubPos = positionManager.subscribe((state) => {
+      setPosState(state);
     });
 
-    const unsubNav = navCtrl.subscribe((pr) => {
-      setNavProgress(pr);
+    const unsubNav = navCtrl.subscribe((progress) => {
+      setNavProgress(progress);
     });
 
-    const unsubBat = batteryManager.subscribe((bt) => {
-      setBatteryState(bt);
+    const unsubBat = batteryManager.subscribe((battery) => {
+      setBatteryState(battery);
 
-      if (bt.isUltraMode) {
+      if (battery.isUltraMode) {
         document.body.classList.add('ultra-mode');
       } else {
         document.body.classList.remove('ultra-mode');
@@ -149,9 +201,9 @@ export const App: React.FC = () => {
     };
   }, [positionManager, navCtrl]);
 
-  // ---------------------------------------------------------
-  // Sync Region Changes
-  // ---------------------------------------------------------
+  // =========================================================
+  // REGION SYNCHRONIZATION
+  // =========================================================
 
   useEffect(() => {
     navCtrl.setRegion(activeRegion);
@@ -164,48 +216,50 @@ export const App: React.FC = () => {
       activeRegion.pois.find((p) => p.category === 'home') ||
       activeRegion.pois[0];
 
-    const newDest =
-      activeRegion.pois.find((p) => p.category === 'college') ||
+    const newDestination =
+      activeRegion.pois.find(
+        (p) => p.category === 'college'
+      ) ||
       activeRegion.pois[1];
 
     setOriginCoord(newHome.coordinate);
     setOriginName(newHome.name);
-    setSelectedDestination(newDest);
+    setSelectedDestination(newDestination);
   }, [activeRegion, navCtrl]);
 
-  // ---------------------------------------------------------
-  // Toast Helper
-  // ---------------------------------------------------------
+  // =========================================================
+  // TOAST
+  // =========================================================
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
+  const showToast = (message: string) => {
+    setToastMessage(message);
 
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);
   };
 
-  // ---------------------------------------------------------
-  // Launch App
-  // ---------------------------------------------------------
+  // =========================================================
+  // LAUNCH APP
+  // =========================================================
 
   const handleLaunchApp = () => {
     setShowSplash(true);
     setViewMode('app');
   };
 
-  // ---------------------------------------------------------
-  // Calculate Route
-  // ---------------------------------------------------------
+  // =========================================================
+  // CALCULATE ROUTE
+  // =========================================================
 
-  const handleCalculateRoute = async (dest: POI) => {
-    setSelectedDestination(dest);
+  const handleCalculateRoute = async (destination: POI) => {
+    setSelectedDestination(destination);
 
     const result = await routeManager.calculateRoute(
       originCoord,
       originName,
-      dest.coordinate,
-      dest.name,
+      destination.coordinate,
+      destination.name,
       activeRegion
     );
 
@@ -228,12 +282,15 @@ export const App: React.FC = () => {
     }
   };
 
-  // ---------------------------------------------------------
-  // Start Active Turn-by-Turn Navigation
-  // ---------------------------------------------------------
+  // =========================================================
+  // START NAVIGATION
+  // =========================================================
 
   const handleStartNavigation = async () => {
-    if (!navProgress.activeRoute && selectedDestination) {
+    if (
+      !navProgress.activeRoute &&
+      selectedDestination
+    ) {
       const result = await routeManager.calculateRoute(
         originCoord,
         originName,
@@ -245,14 +302,18 @@ export const App: React.FC = () => {
       if (result) {
         navCtrl.startNavigation(result.route);
       }
-    } else if (navProgress.activeRoute) {
+
+      return;
+    }
+
+    if (navProgress.activeRoute) {
       navCtrl.startNavigation();
     }
   };
 
-  // ---------------------------------------------------------
-  // AI Command Execution
-  // ---------------------------------------------------------
+  // =========================================================
+  // AI COMMAND EXECUTION
+  // =========================================================
 
   const handleExecuteAICommand = (
     result: AICommandResult
@@ -265,42 +326,46 @@ export const App: React.FC = () => {
       showToast(
         'Navigation stopped via voice command'
       );
+
+      return;
     }
 
-    else if (result.intent === 'REROUTE') {
+    if (result.intent === 'REROUTE') {
       navCtrl.simulateMissedTurn();
 
       showToast(
         'Offline reroute triggered via voice command'
       );
+
+      return;
     }
 
-    else if (
+    if (
       result.intent === 'NAVIGATE' ||
       result.intent === 'GO_HOME' ||
       result.intent === 'GO_SAVED'
     ) {
-      if (result.matchedPOI) {
-        handleCalculateRoute(result.matchedPOI);
+      const destination =
+        result.matchedPOI || selectedDestination;
 
-        setTimeout(() => {
-          navCtrl.startNavigation();
-        }, 600);
+      if (!destination) {
+        showToast(
+          'No destination selected for navigation'
+        );
+        return;
       }
 
-      else if (selectedDestination) {
-        handleCalculateRoute(selectedDestination);
+      handleCalculateRoute(destination);
 
-        setTimeout(() => {
-          navCtrl.startNavigation();
-        }, 600);
-      }
+      setTimeout(() => {
+        navCtrl.startNavigation();
+      }, 600);
     }
   };
 
-  // ---------------------------------------------------------
-  // Bottom Tab Navigation
-  // ---------------------------------------------------------
+  // =========================================================
+  // BOTTOM TAB NAVIGATION
+  // =========================================================
 
   const handleSelectTab = (tab: TabType) => {
     setActiveTab(tab);
@@ -309,23 +374,23 @@ export const App: React.FC = () => {
       setIsSavedLocationsOpen(true);
     }
 
-    else if (tab === 'regions') {
+    if (tab === 'regions') {
       setIsDownloadRegionOpen(true);
     }
 
-    else if (tab === 'settings') {
+    if (tab === 'settings') {
       setIsSettingsScreenOpen(true);
     }
   };
 
-  // ---------------------------------------------------------
-  // Toggle Saved POI
-  // ---------------------------------------------------------
+  // =========================================================
+  // SAVE / UNSAVE POI
+  // =========================================================
 
   const handleToggleSavePOI = (poi: POI) => {
-    setSavedLocations((prev) => {
-      const exists = prev.some(
-        (p) => p.id === poi.id
+    setSavedLocations((previous) => {
+      const exists = previous.some(
+        (item) => item.id === poi.id
       );
 
       if (exists) {
@@ -333,8 +398,8 @@ export const App: React.FC = () => {
           `Removed "${poi.name}" from saved places`
         );
 
-        return prev.filter(
-          (p) => p.id !== poi.id
+        return previous.filter(
+          (item) => item.id !== poi.id
         );
       }
 
@@ -343,7 +408,7 @@ export const App: React.FC = () => {
       );
 
       return [
-        ...prev,
+        ...previous,
         {
           ...poi,
           isSaved: true,
@@ -352,14 +417,17 @@ export const App: React.FC = () => {
     });
   };
 
-  // ---------------------------------------------------------
-  // 15-Step Hackathon Demo Dispatcher
-  // ---------------------------------------------------------
+  // =========================================================
+  // 15-STEP HACKATHON DEMO
+  // =========================================================
 
-  const handleRunDemoStep = (stepNumber: number) => {
+  const handleRunDemoStep = (
+    stepNumber: number
+  ) => {
     switch (stepNumber) {
+
       // -----------------------------------------------------
-      // STEP 1 — Launch
+      // STEP 1 — LAUNCH
       // -----------------------------------------------------
 
       case 1:
@@ -372,7 +440,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 2 — Offline Regional Maps
+      // STEP 2 — REGIONAL OFFLINE MAPS
       // -----------------------------------------------------
 
       case 2:
@@ -385,7 +453,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 3 — Select College
+      // STEP 3 — SELECT COLLEGE
       // -----------------------------------------------------
 
       case 3:
@@ -402,7 +470,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 4 — Calculate Offline Route
+      // STEP 4 — CALCULATE OFFLINE ROUTE
       // -----------------------------------------------------
 
       case 4:
@@ -417,7 +485,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 5 — Start Navigation
+      // STEP 5 — START NAVIGATION
       // -----------------------------------------------------
 
       case 5:
@@ -430,11 +498,12 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 6 — Internet OFF
+      // STEP 6 — INTERNET OFF
       // -----------------------------------------------------
 
       case 6:
         setIsOfflineForced(true);
+
         routeManager.setOfflineSimulation(true);
 
         showToast(
@@ -444,11 +513,12 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 7 — Offline Navigation Continues
+      // STEP 7 — OFFLINE NAVIGATION CONTINUES
       // -----------------------------------------------------
 
       case 7:
         setIsOfflineForced(true);
+
         routeManager.setOfflineSimulation(true);
 
         showToast(
@@ -458,7 +528,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 8 — GPS Weak
+      // STEP 8 — GPS WEAK
       // -----------------------------------------------------
 
       case 8:
@@ -471,7 +541,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 9 — Dead Reckoning
+      // STEP 9 — DEAD RECKONING
       // -----------------------------------------------------
 
       case 9:
@@ -482,7 +552,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 10 — GPS Restored
+      // STEP 10 — GPS RESTORED
       // -----------------------------------------------------
 
       case 10:
@@ -498,7 +568,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 11 — AI Voice
+      // STEP 11 — AI VOICE
       // -----------------------------------------------------
 
       case 11:
@@ -511,7 +581,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 12 — Origin Island
+      // STEP 12 — ORIGIN ISLAND
       // -----------------------------------------------------
 
       case 12:
@@ -522,7 +592,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 13 — Low Battery
+      // STEP 13 — LOW BATTERY
       // -----------------------------------------------------
 
       case 13:
@@ -535,7 +605,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 14 — Ultra Navigation Mode
+      // STEP 14 — ULTRA NAVIGATION MODE
       // -----------------------------------------------------
 
       case 14:
@@ -548,7 +618,7 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 15 — Continue Navigation
+      // STEP 15 — CONTINUE NAVIGATION
       // -----------------------------------------------------
 
       case 15:
@@ -563,9 +633,9 @@ export const App: React.FC = () => {
     }
   };
 
-  // ---------------------------------------------------------
-  // Navigation State Helpers
-  // ---------------------------------------------------------
+  // =========================================================
+  // NAVIGATION STATE HELPERS
+  // =========================================================
 
   const isNavigating =
     navProgress.status === 'navigating' ||
@@ -575,13 +645,16 @@ export const App: React.FC = () => {
     navProgress.status === 'previewing' &&
     navProgress.activeRoute !== null;
 
+  // IMPORTANT:
+  // "arrived" is treated as an idle/home state so
+  // HomeScreenOverlay comes back after navigation finishes.
   const isIdle =
     navProgress.status === 'idle' ||
     navProgress.status === 'arrived';
 
-  // ---------------------------------------------------------
-  // Landing Page
-  // ---------------------------------------------------------
+  // =========================================================
+  // LANDING PAGE
+  // =========================================================
 
   if (viewMode === 'landing') {
     return (
@@ -591,16 +664,14 @@ export const App: React.FC = () => {
     );
   }
 
-  // ---------------------------------------------------------
-  // Main Application
-  // ---------------------------------------------------------
+  // =========================================================
+  // MAIN APPLICATION
+  // =========================================================
 
   return (
     <div className="min-h-screen bg-[#08090A] text-[#F5F7F8] flex flex-col items-center justify-start relative overflow-x-hidden font-sans">
 
-      {/* ---------------------------------------------------
-          1. App Launch Splash Screen
-      --------------------------------------------------- */}
+      {/* SPLASH SCREEN */}
 
       {showSplash && (
         <SplashScreen
@@ -608,18 +679,14 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* ---------------------------------------------------
-          2. Application Header
-      --------------------------------------------------- */}
+      {/* HEADER */}
 
       <NavigationHeader
         isNavigating={isNavigating}
         isOffline={isOfflineForced}
         posState={posState}
         batteryState={batteryState}
-        onBackOrStopNav={() =>
-          navCtrl.stopNavigation()
-        }
+        onBackOrStopNav={() => navCtrl.stopNavigation()}
         onToggleViewMode={() =>
           setViewMode('landing')
         }
@@ -629,9 +696,7 @@ export const App: React.FC = () => {
         }
       />
 
-      {/* ---------------------------------------------------
-          3. Main Content Container
-      --------------------------------------------------- */}
+      {/* MAIN APP FRAME */}
 
       <main
         className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
@@ -640,6 +705,7 @@ export const App: React.FC = () => {
             : 'max-w-6xl'
         }`}
       >
+
         <div
           className={`w-full flex-1 flex flex-col bg-[#08090A] sm:rounded-3xl border border-[#2B2F33] shadow-2xl relative overflow-hidden ${
             isPhoneFrameView
@@ -648,9 +714,7 @@ export const App: React.FC = () => {
           }`}
         >
 
-          {/* ------------------------------------------------
-              4. Origin Island
-          ------------------------------------------------ */}
+          {/* ORIGIN ISLAND */}
 
           <OriginIsland
             navProgress={navProgress}
@@ -662,9 +726,7 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* ------------------------------------------------
-              5. Turn Guidance HUD
-          ------------------------------------------------ */}
+          {/* TURN GUIDANCE HUD */}
 
           <TurnGuidanceHUD
             progress={navProgress}
@@ -690,9 +752,7 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* ------------------------------------------------
-              6. Interactive Map View
-          ------------------------------------------------ */}
+          {/* MAP AREA */}
 
           <div className="flex-1 w-full relative min-h-[420px]">
 
@@ -715,9 +775,7 @@ export const App: React.FC = () => {
               }}
             />
 
-            {/* ------------------------------------------------
-                7. Home Screen Overlay
-            ------------------------------------------------ */}
+            {/* HOME OVERLAY */}
 
             {isIdle && (
               <HomeScreenOverlay
@@ -740,9 +798,7 @@ export const App: React.FC = () => {
                 }
                 onSelectDestination={(poi) => {
                   setDetailedPoi(poi);
-                  setIsDestinationDetailsOpen(
-                    true
-                  );
+                  setIsDestinationDetailsOpen(true);
                 }}
                 onOpenEngineDrawer={() =>
                   setIsEngineDrawerOpen(true)
@@ -750,25 +806,23 @@ export const App: React.FC = () => {
               />
             )}
 
-            {/* ------------------------------------------------
-                8. Route Context Card
-            ------------------------------------------------ */}
+            {/* ROUTE CONTEXT */}
 
             {isNavigating &&
               navProgress.activeRoute && (
                 <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
                   <RouteContextCard
                     context={
-                      navProgress.activeRoute.context
+                      navProgress.activeRoute
+                        .context
                     }
                   />
                 </div>
               )}
+
           </div>
 
-          {/* ------------------------------------------------
-              9. Route Preview Screen
-          ------------------------------------------------ */}
+          {/* ROUTE PREVIEW */}
 
           {isPreviewing &&
             navProgress.activeRoute && (
@@ -785,15 +839,14 @@ export const App: React.FC = () => {
               />
             )}
 
-          {/* ------------------------------------------------
-              10. Battery Warning
-          ------------------------------------------------ */}
+          {/* LOW BATTERY WARNING */}
 
           {batteryState.isLowBattery &&
             !batteryState.isUltraMode && (
               <div className="mx-4 my-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-500/40 text-amber-200 flex items-center justify-between z-30 select-none">
 
                 <div className="flex items-center gap-2">
+
                   <Zap
                     size={16}
                     className="text-[#FFD400] animate-pulse"
@@ -807,6 +860,7 @@ export const App: React.FC = () => {
                     %) — Ultra Navigation Mode
                     recommended
                   </span>
+
                 </div>
 
                 <button
@@ -819,22 +873,19 @@ export const App: React.FC = () => {
                 >
                   Enable
                 </button>
+
               </div>
             )}
 
-          {/* ------------------------------------------------
-              11. Bottom Navigation
-          ------------------------------------------------ */}
+          {/* BOTTOM NAVIGATION */}
 
           <BottomNavBar
             activeTab={activeTab}
-            onChangeTab={handleSelectTab}
+            onChange={handleSelectTab}
             isNavigating={isNavigating}
           />
 
-          {/* ------------------------------------------------
-              12. Toast Notification
-          ------------------------------------------------ */}
+          {/* TOAST */}
 
           {toastMessage && (
             <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#FFD400] text-black font-extrabold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 font-display">
@@ -844,12 +895,11 @@ export const App: React.FC = () => {
               <span>
                 {toastMessage}
               </span>
+
             </div>
           )}
 
-          {/* ------------------------------------------------
-              13. Ultra Navigation Overlay
-          ------------------------------------------------ */}
+          {/* ULTRA MODE */}
 
           {batteryState.isUltraMode && (
             <UltraNavOverlay
@@ -874,12 +924,14 @@ export const App: React.FC = () => {
               }
             />
           )}
+
         </div>
+
       </main>
 
-      {/* -----------------------------------------------------
-          14. NavX Technology & Simulation Drawer
-      ----------------------------------------------------- */}
+      {/* =====================================================
+          ENGINE DRAWER
+          ===================================================== */}
 
       <NavXEngineDrawer
         isOpen={isEngineDrawerOpen}
@@ -926,9 +978,9 @@ export const App: React.FC = () => {
           );
         }}
         batteryState={batteryState}
-        onSetBatteryLevel={(lvl) =>
+        onSetBatteryLevel={(level) =>
           batteryManager.setSimulatedBatteryLevel(
-            lvl
+            level
           )
         }
         onToggleUltraMode={() =>
@@ -940,9 +992,9 @@ export const App: React.FC = () => {
         }
       />
 
-      {/* -----------------------------------------------------
-          15. Search Screen
-      ----------------------------------------------------- */}
+      {/* =====================================================
+          SEARCH
+          ===================================================== */}
 
       <SearchScreen
         isOpen={isSearchScreenOpen}
@@ -964,9 +1016,9 @@ export const App: React.FC = () => {
         }
       />
 
-      {/* -----------------------------------------------------
-          16. Destination Details
-      ----------------------------------------------------- */}
+      {/* =====================================================
+          DESTINATION DETAILS
+          ===================================================== */}
 
       <DestinationDetailsModal
         isOpen={
@@ -974,18 +1026,13 @@ export const App: React.FC = () => {
         }
         poi={detailedPoi}
         onClose={() =>
-          setIsDestinationDetailsOpen(
-            false
-          )
+          setIsDestinationDetailsOpen(false)
         }
         currentCoord={
           posState.currentPosition
         }
         onStartRoute={(poi) => {
-          setIsDestinationDetailsOpen(
-            false
-          );
-
+          setIsDestinationDetailsOpen(false);
           handleCalculateRoute(poi);
         }}
         onToggleSave={
@@ -996,9 +1043,9 @@ export const App: React.FC = () => {
         }
       />
 
-      {/* -----------------------------------------------------
-          17. Saved Locations
-      ----------------------------------------------------- */}
+      {/* =====================================================
+          SAVED LOCATIONS
+          ===================================================== */}
 
       <SavedLocationsScreen
         isOpen={isSavedLocationsOpen}
@@ -1016,8 +1063,8 @@ export const App: React.FC = () => {
         }}
         onAddLocation={(newPoi) => {
           setSavedLocations(
-            (prev) => [
-              ...prev,
+            (previous) => [
+              ...previous,
               newPoi,
             ]
           );
@@ -1028,9 +1075,9 @@ export const App: React.FC = () => {
         }}
         onDeleteLocation={(id) => {
           setSavedLocations(
-            (prev) =>
-              prev.filter(
-                (p) => p.id !== id
+            (previous) =>
+              previous.filter(
+                (poi) => poi.id !== id
               )
           );
 
@@ -1040,36 +1087,32 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* -----------------------------------------------------
-          18. Download Region
-      ----------------------------------------------------- */}
+      {/* =====================================================
+          DOWNLOAD REGIONS
+          ===================================================== */}
 
       <DownloadRegionScreen
-        isOpen={
-          isDownloadRegionOpen
-        }
+        isOpen={isDownloadRegionOpen}
         onClose={() => {
           setIsDownloadRegionOpen(false);
           setActiveTab('map');
         }}
         activeRegion={activeRegion}
-        onSelectRegion={(reg) => {
-          setActiveRegion(reg);
+        onSelectRegion={(region) => {
+          setActiveRegion(region);
 
           showToast(
-            `Active offline region set to: ${reg.name}`
+            `Active offline region set to: ${region.name}`
           );
         }}
       />
 
-      {/* -----------------------------------------------------
-          19. Settings
-      ----------------------------------------------------- */}
+      {/* =====================================================
+          SETTINGS
+          ===================================================== */}
 
       <SettingsScreen
-        isOpen={
-          isSettingsScreenOpen
-        }
+        isOpen={isSettingsScreenOpen}
         onClose={() => {
           setIsSettingsScreenOpen(false);
           setActiveTab('map');
@@ -1083,9 +1126,7 @@ export const App: React.FC = () => {
           const muted =
             !isVoiceMuted;
 
-          setIsVoiceMuted(
-            muted
-          );
+          setIsVoiceMuted(muted);
 
           voiceEngine.setMuted(
             muted
@@ -1093,9 +1134,9 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* -----------------------------------------------------
-          20. AI Voice Panel
-      ----------------------------------------------------- */}
+      {/* =====================================================
+          AI VOICE PANEL
+          ===================================================== */}
 
       <VoiceAIPanel
         isOpen={isVoiceModalOpen}
@@ -1108,6 +1149,7 @@ export const App: React.FC = () => {
           handleExecuteAICommand
         }
       />
+
     </div>
   );
 };

@@ -10,7 +10,8 @@ import {
   X,
   Cpu,
   WifiOff,
-  CheckCircle2
+  CheckCircle2,
+  Mic
 } from 'lucide-react';
 import { ManeuverType, PositionState, Route } from '../types';
 import { NavigationProgress } from '../engine/navigationController';
@@ -24,6 +25,7 @@ interface TurnGuidanceHUDProps {
   onToggleMute: () => void;
   onStopNav: () => void;
   onReroute: () => void;
+  onOpenVoice: () => void;
 }
 
 export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
@@ -35,6 +37,7 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
   onToggleMute,
   onStopNav,
   onReroute,
+  onOpenVoice,
 }) => {
   if (progress.status !== 'navigating' && progress.status !== 'rerouting') {
     return null;
@@ -48,18 +51,18 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
     switch (type) {
       case 'turn-left':
       case 'sharp-left':
-        return <CornerUpLeft size={36} className="text-[#ff4800]" strokeWidth={2.5} />;
+        return <CornerUpLeft size={36} className="text-[#FFD400]" strokeWidth={2.5} />;
       case 'turn-right':
       case 'sharp-right':
-        return <CornerUpRight size={36} className="text-[#ff4800]" strokeWidth={2.5} />;
+        return <CornerUpRight size={36} className="text-[#FFD400]" strokeWidth={2.5} />;
       case 'slight-left':
-        return <CornerUpLeft size={36} className="text-[#ff4800] -rotate-12" strokeWidth={2.5} />;
+        return <CornerUpLeft size={36} className="text-[#FFD400] -rotate-12" strokeWidth={2.5} />;
       case 'slight-right':
-        return <CornerUpRight size={36} className="text-[#ff4800] rotate-12" strokeWidth={2.5} />;
+        return <CornerUpRight size={36} className="text-[#FFD400] rotate-12" strokeWidth={2.5} />;
       case 'arrive':
-        return <Navigation size={36} className="text-[#00e676]" strokeWidth={2.5} />;
+        return <Navigation size={36} className="text-[#22C55E]" strokeWidth={2.5} />;
       default:
-        return <ArrowUp size={36} className="text-[#ff4800]" strokeWidth={2.5} />;
+        return <ArrowUp size={36} className="text-[#FFD400]" strokeWidth={2.5} />;
     }
   };
 
@@ -68,72 +71,97 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
     return `${Math.round(meters)} m`;
   };
 
+  const getManeuverTitle = (type: ManeuverType) => {
+    switch (type) {
+      case 'turn-left': return 'TURN LEFT';
+      case 'turn-right': return 'TURN RIGHT';
+      case 'slight-left': return 'SLIGHT LEFT';
+      case 'slight-right': return 'SLIGHT RIGHT';
+      case 'sharp-left': return 'SHARP LEFT';
+      case 'sharp-right': return 'SHARP RIGHT';
+      case 'arrive': return 'ARRIVING AT DESTINATION';
+      default: return 'PROCEED STRAIGHT';
+    }
+  };
+
   return (
     <div className="w-full px-4 pt-1 z-40 select-none animate-in fade-in slide-in-from-top-3 duration-300">
-      <div className="p-4 rounded-3xl bg-[#0f131f]/95 backdrop-blur-2xl border border-white/10 shadow-2xl relative overflow-hidden space-y-3">
-        {/* Glow Accent Strip */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#ff4800] to-transparent opacity-90" />
+      <div className="p-4 rounded-3xl bg-[#111315]/95 backdrop-blur-2xl border border-[#2B2F33] shadow-2xl relative overflow-hidden space-y-3">
+        {/* Top Accent Strip */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#FFD400] to-transparent opacity-90" />
 
-        {/* Top Info & Action Row */}
+        {/* Top Maneuver & Distance Info Card */}
         <div className="flex items-center justify-between gap-3">
-          {/* Turn Maneuver Icon */}
-          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#ff4800]/15 border border-[#ff4800]/40 flex-shrink-0 shadow-lg shadow-[#ff4800]/20">
+          {/* Large Turn Maneuver Icon */}
+          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#191C1F] border border-[#2B2F33] flex-shrink-0 shadow-lg">
             {renderManeuverIcon(maneuver)}
           </div>
 
-          {/* Turn Instruction Text & Distance */}
+          {/* Turn Instruction & Road Name */}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white tracking-tight font-display">
-                {formatDistance(distance)}
+              <span className="text-xs uppercase font-black text-[#FFD400] tracking-wider font-display">
+                {progress.status === 'rerouting' ? 'REROUTING OFFLINE...' : getManeuverTitle(maneuver)}
               </span>
-              <span className="text-xs uppercase font-extrabold text-[#ff4800] tracking-wider font-display">
-                {progress.status === 'rerouting' ? 'REROUTING OFFLINE...' : 'THEN'}
+              <span className="text-xl font-black text-[#F5F7F8] tracking-tight font-display">
+                in {formatDistance(distance)}
               </span>
             </div>
-            <p className="text-sm font-bold text-white truncate mt-0.5">
-              {instruction?.instruction || 'Continue along route'}
+
+            <p className="text-sm font-bold text-[#F5F7F8] truncate mt-0.5">
+              {instruction?.roadName || 'MG Road / Outer Ring Link'}
             </p>
-            {instruction?.roadName && (
-              <span className="text-[11px] text-neutral-400 font-medium truncate block">
-                on {instruction.roadName}
-              </span>
-            )}
+
+            <span className="text-[11px] text-[#A4A9AE] truncate block">
+              {instruction?.instruction || 'Continue on route'}
+            </span>
           </div>
 
-          {/* Controls: Mute, Reroute, Stop */}
+          {/* Quick Action Controls */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Voice Command Button */}
+            <button
+              onClick={onOpenVoice}
+              title="Voice navigation"
+              className="p-2.5 rounded-xl bg-[#FFD400] hover:bg-[#e6bf00] text-black shadow-md transition-colors"
+            >
+              <Mic size={17} />
+            </button>
+
+            {/* Mute Voice */}
             <button
               onClick={onToggleMute}
-              title={isMuted ? 'Unmute voice guidance' : 'Mute voice guidance'}
-              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors"
+              title={isMuted ? 'Unmute voice' : 'Mute voice'}
+              className="p-2.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-white transition-colors"
             >
-              {isMuted ? <VolumeX size={18} className="text-neutral-400" /> : <Volume2 size={18} className="text-[#ff4800]" />}
+              {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} className="text-[#FFD400]" />}
             </button>
 
+            {/* Reroute */}
             <button
               onClick={onReroute}
-              title="Force offline reroute"
-              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors"
+              title="Recalculate route"
+              className="p-2.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-white transition-colors"
             >
-              <RotateCcw size={18} className={progress.status === 'rerouting' ? 'animate-spin text-amber-400' : ''} />
+              <RotateCcw size={17} className={progress.status === 'rerouting' ? 'animate-spin text-[#F59E0B]' : ''} />
             </button>
 
+            {/* Cancel Navigation */}
             <button
               onClick={onStopNav}
-              title="Cancel navigation"
-              className="p-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
+              title="Exit navigation"
+              className="p-2.5 rounded-xl bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 transition-colors"
             >
-              <X size={18} />
+              <X size={17} />
             </button>
           </div>
         </div>
 
-        {/* Lane Guidance Indicators */}
+        {/* Lane Guidance Indicators if present */}
         {instruction?.laneInfo && (
-          <div className="flex items-center gap-1.5 pt-2 border-t border-white/5">
-            <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider mr-1">
-              Lane Assist:
+          <div className="flex items-center gap-1.5 pt-2 border-t border-[#2B2F33]">
+            <span className="text-[10px] uppercase font-bold text-[#A4A9AE] tracking-wider mr-1">
+              Lane Guidance:
             </span>
             {Array.from({ length: instruction.laneInfo.totalLanes }).map((_, idx) => {
               const isActive = instruction.laneInfo!.activeLanes.includes(idx);
@@ -142,8 +170,8 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
                   key={idx}
                   className={`w-5 h-6 rounded flex items-center justify-center text-[10px] font-bold ${
                     isActive
-                      ? 'bg-[#ff4800] text-black border border-white shadow-md'
-                      : 'bg-neutral-800 text-neutral-500'
+                      ? 'bg-[#FFD400] text-black border border-white shadow-md'
+                      : 'bg-[#191C1F] text-[#6F757B] border border-[#2B2F33]'
                   }`}
                 >
                   ↑
@@ -153,32 +181,31 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
           </div>
         )}
 
-        {/* Dynamic Status Badges Row */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px]">
-          {/* Left: Sensor or GPS status */}
+        {/* Navigation Status States Banner */}
+        <div className="flex items-center justify-between pt-2 border-t border-[#2B2F33] text-[11px] font-display">
+          {/* Status 1-6 Pills */}
           <div className="flex items-center gap-1.5">
             {posState.isSensorAssisted ? (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold">
-                <Cpu size={11} className="text-cyan-400 animate-pulse" />
-                <span>SENSOR POSITIONING</span>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#3B82F6]/15 border border-[#3B82F6]/35 text-[#60A5FA] font-bold">
+                <Cpu size={11} className="text-[#3B82F6] animate-pulse" />
+                <span>SENSOR ASSISTED</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 border border-green-500/30 text-green-300 font-bold">
-                <CheckCircle2 size={11} className="text-green-400" />
-                <span>GPS SIGNAL OK</span>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#22C55E]/15 border border-[#22C55E]/35 text-[#4ADE80] font-bold">
+                <CheckCircle2 size={11} className="text-[#22C55E]" />
+                <span>GPS ACTIVE</span>
               </div>
             )}
 
             {isOffline && (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold">
-                <WifiOff size={11} className="text-amber-400" />
-                <span>OFFLINE NAV</span>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/35 text-[#FBBF24] font-bold">
+                <WifiOff size={11} className="text-[#F59E0B]" />
+                <span>OFFLINE NAVIGATION</span>
               </div>
             )}
           </div>
 
-          {/* Right: Target destination label */}
-          <span className="text-neutral-400 truncate max-w-[140px] font-medium">
+          <span className="text-[#A4A9AE] truncate max-w-[130px] font-medium">
             To: {activeRoute?.destinationName}
           </span>
         </div>

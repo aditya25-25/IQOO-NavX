@@ -43,17 +43,17 @@ export const DemoSimulationBar: React.FC<DemoSimulationBarProps> = ({
   const [activeDemoStep, setActiveDemoStep] = useState<number | null>(null);
 
   const demoStepsList = [
-    { step: 1, title: 'Open IQOO NavX', desc: 'Initialize dark theme & UI shell' },
+    { step: 1, title: 'Splash / Launch', desc: 'App boot & offline check' },
     { step: 2, title: 'Download Region', desc: 'Verify local regional map package' },
     { step: 3, title: 'Select Destination', desc: 'Pick College / Innovation Hub' },
     { step: 4, title: 'Calculate Route', desc: 'Solve offline graph route & context' },
     { step: 5, title: 'Start Navigation', desc: 'Begin turn-by-turn guidance' },
     { step: 6, title: 'Disable Internet', desc: 'Simulate connection loss' },
-    { step: 7, title: 'Show Offline Mode', desc: 'Seamless offline continuation' },
+    { step: 7, title: 'Offline Nav State', desc: 'Seamless offline continuation' },
     { step: 9, title: 'Simulate Weak GPS', desc: 'Trigger sensor dead reckoning' },
-    { step: 11, title: 'Simulate Missed Turn', desc: 'Trigger offline rerouting solver' },
-    { step: 13, title: 'Restore GPS', desc: 'Smooth position correction' },
-    { step: 15, title: 'AI Command Parser', desc: 'Natural-language voice input' },
+    { step: 11, title: 'Missed Turn', desc: 'Trigger offline rerouting solver' },
+    { step: 13, title: 'Restore GPS', desc: 'Position corrected smoothly' },
+    { step: 15, title: 'Voice AI Commands', desc: 'Hands-free speech commands' },
     { step: 17, title: 'Origin Island HUD', desc: 'Live dynamic notification card' },
     { step: 18, title: 'Low Battery / Ultra Mode', desc: 'OLED power conservation' }
   ];
@@ -61,18 +61,18 @@ export const DemoSimulationBar: React.FC<DemoSimulationBarProps> = ({
   return (
     <div className="w-full z-40 select-none px-4 pb-2">
       {/* Simulation Master Pill */}
-      <div className="p-2.5 rounded-2xl bg-[#0e111a]/95 backdrop-blur-xl border border-white/10 shadow-2xl space-y-2">
+      <div className="p-2.5 rounded-2xl bg-[#111315]/95 backdrop-blur-xl border border-[#2B2F33] shadow-2xl space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sliders size={15} className="text-[#ff4800]" />
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 font-display">
+            <Sliders size={15} className="text-[#FFD400]" />
+            <span className="text-xs font-bold uppercase tracking-wider text-[#F5F7F8] font-display">
               Hackathon Demo / Simulation Controls
             </span>
           </div>
 
           <button
             onClick={() => setIsPanelOpen(!isPanelOpen)}
-            className="flex items-center gap-1 text-[11px] font-semibold text-[#ff4800] hover:text-[#ff6b2b] px-2 py-1 rounded-lg bg-[#ff4800]/10"
+            className="flex items-center gap-1 text-[11px] font-semibold text-[#FFD400] hover:underline px-2 py-1 rounded-lg bg-[#FFD400]/10 font-display"
           >
             <span>{isPanelOpen ? 'Collapse Controls' : 'Expand Demo Suite'}</span>
             {isPanelOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -80,17 +80,17 @@ export const DemoSimulationBar: React.FC<DemoSimulationBarProps> = ({
         </div>
 
         {/* Quick Simulation Action Buttons */}
-        <div className="grid grid-cols-4 gap-1.5 pt-1 font-sans">
+        <div className="grid grid-cols-4 gap-1.5 pt-1 font-display">
           {/* Internet Toggle */}
           <button
             onClick={onToggleInternet}
-            className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-semibold transition-all ${
+            className={`flex items-center justify-center gap-1 p-2 rounded-xl text-xs font-bold transition-all ${
               isOffline
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                : 'bg-green-500/20 text-green-400 border border-green-500/30'
+                ? 'bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40'
+                : 'bg-[#22C55E]/20 text-[#22C55E] border border-[#22C55E]/30'
             }`}
           >
-            {isOffline ? <WifiOff size={14} /> : <Wifi size={14} />}
+            {isOffline ? <WifiOff size={13} /> : <Wifi size={13} />}
             <span>{isOffline ? 'Offline' : 'Online'}</span>
           </button>
 
@@ -103,48 +103,48 @@ export const DemoSimulationBar: React.FC<DemoSimulationBarProps> = ({
                 onSetGpsQuality('strong');
               }
             }}
-            className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-semibold transition-all ${
+            className={`flex items-center justify-center gap-1 p-2 rounded-xl text-xs font-bold transition-all ${
               posState.isSensorAssisted
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                ? 'bg-[#3B82F6]/20 text-[#60A5FA] border border-[#3B82F6]/40'
+                : 'bg-[#22C55E]/20 text-[#22C55E] border border-[#22C55E]/30'
             }`}
           >
-            {posState.isSensorAssisted ? <Cpu size={14} /> : <Radio size={14} />}
-            <span>{posState.isSensorAssisted ? 'IMU Mode' : 'GPS Fix'}</span>
+            {posState.isSensorAssisted ? <Cpu size={13} /> : <Radio size={13} />}
+            <span>{posState.isSensorAssisted ? 'IMU Mode' : 'GPS OK'}</span>
           </button>
 
           {/* Missed Turn / Offline Reroute Trigger */}
           <button
             onClick={onSimulateMissedTurn}
             disabled={navProgress.status !== 'navigating'}
-            className="flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-semibold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex items-center justify-center gap-1 p-2 rounded-xl text-xs font-bold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
-            <RotateCcw size={14} className={navProgress.status === 'rerouting' ? 'animate-spin' : ''} />
+            <RotateCcw size={13} className={navProgress.status === 'rerouting' ? 'animate-spin' : ''} />
             <span>Missed Turn</span>
           </button>
 
           {/* Ultra Navigation Mode Toggle */}
           <button
             onClick={onToggleUltraMode}
-            className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-semibold transition-all ${
+            className={`flex items-center justify-center gap-1 p-2 rounded-xl text-xs font-bold transition-all ${
               batteryState.isUltraMode
-                ? 'bg-[#ff4800] text-black font-bold'
-                : 'bg-[#ff4800]/20 text-[#ff4800] border border-[#ff4800]/40'
+                ? 'bg-[#FFD400] text-black font-extrabold'
+                : 'bg-[#FFD400]/20 text-[#FFD400] border border-[#FFD400]/40'
             }`}
           >
-            <Zap size={14} />
+            <Zap size={13} />
             <span>{batteryState.isUltraMode ? 'Ultra ON' : 'Ultra Mode'}</span>
           </button>
         </div>
 
         {/* Detailed Expandable Panel for Judges & Scenario Walkthrough */}
         {isPanelOpen && (
-          <div className="pt-2 border-t border-white/10 space-y-3 animate-in fade-in duration-200">
+          <div className="pt-2 border-t border-[#2B2F33] space-y-3 animate-in fade-in duration-200">
             {/* Battery Level Slider */}
-            <div className="flex items-center justify-between gap-4 p-2.5 rounded-xl bg-black/40 border border-white/5">
-              <div className="flex items-center gap-2 text-xs text-neutral-300 font-medium">
+            <div className="flex items-center justify-between gap-4 p-2.5 rounded-xl bg-[#191C1F] border border-[#2B2F33]">
+              <div className="flex items-center gap-2 text-xs text-[#F5F7F8] font-medium font-display">
                 <span>Simulate Battery:</span>
-                <span className={`font-bold ${batteryState.isLowBattery ? 'text-red-400' : 'text-neutral-200'}`}>
+                <span className={`font-bold ${batteryState.isLowBattery ? 'text-[#EF4444]' : 'text-[#22C55E]'}`}>
                   {Math.round(batteryState.level * 100)}%
                 </span>
               </div>
@@ -155,35 +155,35 @@ export const DemoSimulationBar: React.FC<DemoSimulationBarProps> = ({
                 step="0.05"
                 value={batteryState.level}
                 onChange={(e) => onSetBatteryLevel(parseFloat(e.target.value))}
-                className="w-36 accent-[#ff4800] cursor-pointer"
+                className="w-36 accent-[#FFD400] cursor-pointer"
               />
             </div>
 
             {/* Step-by-Step Hackathon Demo Scenario Guide */}
             <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 font-display">
-                <Sparkles size={13} className="text-[#ff4800]" />
-                <span>Judging Scenario Checklist (Steps 1 to 20):</span>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#A4A9AE] font-display">
+                <Sparkles size={13} className="text-[#FFD400]" />
+                <span>Judging Scenario Walkthrough (Steps 1 to 20):</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1 font-display">
                 {demoStepsList.map((item) => (
                   <div
                     key={item.step}
                     onClick={() => setActiveDemoStep(item.step)}
                     className={`p-2 rounded-xl border text-left cursor-pointer transition-all ${
                       activeDemoStep === item.step
-                        ? 'bg-[#ff4800]/15 border-[#ff4800] text-white'
-                        : 'bg-black/30 border-white/5 hover:border-white/20 text-neutral-400'
+                        ? 'bg-[#FFD400]/15 border-[#FFD400] text-[#F5F7F8]'
+                        : 'bg-[#191C1F] border-[#2B2F33] hover:border-[#FFD400]/40 text-[#A4A9AE]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-neutral-200">
+                      <span className="text-[11px] font-bold text-[#F5F7F8]">
                         Step {item.step}: {item.title}
                       </span>
-                      <CheckCircle2 size={12} className={activeDemoStep === item.step ? 'text-[#ff4800]' : 'text-neutral-600'} />
+                      <CheckCircle2 size={12} className={activeDemoStep === item.step ? 'text-[#FFD400]' : 'text-[#6F757B]'} />
                     </div>
-                    <p className="text-[10px] text-neutral-400 mt-0.5 line-clamp-1">{item.desc}</p>
+                    <p className="text-[10px] text-[#A4A9AE] mt-0.5 line-clamp-1 font-sans">{item.desc}</p>
                   </div>
                 ))}
               </div>

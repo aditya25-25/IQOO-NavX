@@ -40,12 +40,20 @@ export class NavigationController {
   private activeRegion: MapRegion;
   private positionManager: PositionFusionManager;
 
-  // Simulation tick timer
-  private simIntervalId: any = null;
+  // Navigation simulation timer
+  private simIntervalId: ReturnType<typeof setInterval> | null =
+    null;
+
+  // Offline reroute calculation timer
+  private rerouteTimeoutId: ReturnType<typeof setTimeout> | null =
+    null;
+
   private currentCoordIndex: number = 0;
   private simSpeedMultiplier: number = 1.0;
 
-  private listeners: Array<(progress: NavigationProgress) => void> = [];
+  private listeners: Array<
+    (progress: NavigationProgress) => void
+  > = [];
 
   constructor(
     region: MapRegion,
@@ -63,6 +71,8 @@ export class NavigationController {
     cb: (progress: NavigationProgress) => void
   ): () => void {
     this.listeners.push(cb);
+
+    // Immediately provide current state.
     cb(this.getProgress());
 
     return () => {
@@ -75,16 +85,20 @@ export class NavigationController {
   private notify() {
     const progress = this.getProgress();
 
-    for (const listener of this.listeners) {
+    // Copy listeners so an unsubscribe during notification
+    // does not interfere with the current notification cycle.
+    [...this.listeners].forEach((listener) => {
       listener(progress);
-    }
+    });
   }
 
   public getProgress(): NavigationProgress {
     const currentInstruction =
       this.activeRoute &&
       this.activeRoute.instructions[this.currentStepIndex]
-        ? this.activeRoute.instructions[this.currentStepIndex]
+        ? this.activeRoute.instructions[
+            this.currentStepIndex
+          ]
         : null;
 
     const totalDist =
@@ -122,6 +136,7 @@ export class NavigationController {
 
   public startPreview(route: Route) {
     this.stopSimulation();
+    this.cancelPendingReroute();
 
     this.activeRoute = route;
     this.status = 'previewing';
@@ -139,13 +154,16 @@ export class NavigationController {
 
     this.isOffRouteDetected = false;
 
-    // New route = new navigation session
+    // New route = new navigation session.
     this.rerouteCount = 0;
 
     this.notify();
   }
 
   public startNavigation(route?: Route) {
+    this.stopSimulation();
+    this.cancelPendingReroute();
+
     if (route) {
       this.activeRoute = route;
     }
@@ -168,10 +186,8 @@ export class NavigationController {
     this.isOffRouteDetected = false;
 
     // New navigation session starts with zero reroutes.
-    // Reroutes that happen during this trip will increment normally.
     this.rerouteCount = 0;
 
-    // Speak initial route prompt
     const firstTurn =
       this.activeRoute.instructions[0];
 
@@ -188,6 +204,7 @@ export class NavigationController {
 
   public stopNavigation() {
     this.stopSimulation();
+    this.cancelPendingReroute();
 
     this.status = 'idle';
     this.activeRoute = null;
@@ -209,6 +226,8 @@ export class NavigationController {
 
   public pauseNavigation() {
     this.stopSimulation();
+    this.cancelPendingReroute();
+
     this.status = 'paused';
     this.notify();
   }
@@ -225,20 +244,17 @@ export class NavigationController {
   }
 
   public setSimSpeed(speedMultiplier: number) {
-    // Prevent invalid simulation intervals.
     this.simSpeedMultiplier = Math.max(
       0.1,
       speedMultiplier
     );
 
-    // If navigation is already running, restart the loop
-    // so the new speed takes effect immediately.
     if (this.status === 'navigating') {
       this.startSimulationLoop();
     }
   }
 
-  // Simulate vehicle advancing along route coordinates
+  // Simulate vehicle advancing along route coordinates.
   private startSimulationLoop() {
     this.stopSimulation();
 
@@ -257,14 +273,12 @@ export class NavigationController {
         this.currentCoordIndex >=
         coords.length - 1
       ) {
-        // Destination arrived!
         const destinationName =
           this.activeRoute.destinationName;
 
         this.status = 'arrived';
         this.stopSimulation();
 
-        // Arrival state should show zero remaining metrics.
         this.remainingDistanceMeters = 0;
         this.remainingDurationSeconds = 0;
         this.distanceToNextTurnMeters = 0;
@@ -279,7 +293,6 @@ export class NavigationController {
         return;
       }
 
-      // Progress to next sub-coordinate
       this.currentCoordIndex++;
 
       const currentCoord =
@@ -296,19 +309,16 @@ export class NavigationController {
       const speedMs =
         15 * this.simSpeedMultiplier;
 
-      // Update position fusion engine
       this.positionManager.updateGpsPosition(
         currentCoord,
         speedMs,
         bearing
       );
 
-      // Recalculate remaining distance and next turn
       this.updateRemainingMeters(
         currentCoord
       );
 
-      // Check if off-route
       if (
         isOffRoute(
           currentCoord,
@@ -327,9 +337,16 @@ export class NavigationController {
   }
 
   private stopSimulation() {
-    if (this.simIntervalId) {
+    if (this.simIntervalId !== null) {
       clearInterval(this.simIntervalId);
       this.simIntervalId = null;
+    }
+  }
+
+  private cancelPendingReroute() {
+    if (this.rerouteTimeoutId !== null) {
+      clearTimeout(this.rerouteTimeoutId);
+      this.rerouteTimeoutId = null;
     }
   }
 
@@ -360,7 +377,6 @@ export class NavigationController {
     this.remainingDurationSeconds =
       Math.round(remainingDist / 12);
 
-    // Find next turn instruction ahead
     for (
       let s = this.currentStepIndex;
       s < this.activeRoute.instructions.length;
@@ -380,7 +396,6 @@ export class NavigationController {
         s <
           this.activeRoute.instructions.length - 1
       ) {
-        // Step reached, advance to next step
         this.currentStepIndex = s + 1;
 
         const nextStep =
@@ -410,7 +425,7 @@ export class NavigationController {
     }
   }
 
-  // Force trigger a simulated missed turn
+  // Force trigger a simulated missed turn.
   // Used by the hackathon demo.
   public simulateMissedTurn() {
     if (
@@ -420,7 +435,6 @@ export class NavigationController {
       return;
     }
 
-    // Force vehicle to a demo detour point.
     const missedCoord: Coordinates = {
       lat: 12.9380,
       lng: 77.7250,
@@ -437,7 +451,7 @@ export class NavigationController {
     );
   }
 
-  // Automatic offline rerouting calculation
+  // Automatic offline rerouting calculation.
   public triggerOfflineReroute(
     fromCoord: Coordinates
   ) {
@@ -448,8 +462,10 @@ export class NavigationController {
       return;
     }
 
-    // Capture the destination before the async
-    // rerouting operation begins.
+    // Cancel any older reroute timer before creating
+    // a new one.
+    this.cancelPendingReroute();
+
     const destination =
       this.activeRoute.destination;
 
@@ -460,6 +476,9 @@ export class NavigationController {
     this.isOffRouteDetected = true;
     this.rerouteCount++;
 
+    // Stop the simulation while rerouting.
+    this.stopSimulation();
+
     this.notify();
 
     voiceEngine.speak(
@@ -467,12 +486,15 @@ export class NavigationController {
       true
     );
 
-    // Compute alternative offline route
-    // without internet.
-    setTimeout(() => {
-      // Navigation may have been stopped while
-      // the reroute was being calculated.
-      if (!this.activeRoute) {
+    this.rerouteTimeoutId = setTimeout(() => {
+      this.rerouteTimeoutId = null;
+
+      // Navigation may have been stopped,
+      // paused, or replaced while rerouting.
+      if (
+        !this.activeRoute ||
+        this.status !== 'rerouting'
+      ) {
         return;
       }
 
@@ -520,6 +542,8 @@ export class NavigationController {
         // Reroute failed, but keep navigation alive.
         this.status = 'navigating';
         this.isOffRouteDetected = false;
+
+        this.startSimulationLoop();
         this.notify();
       }
     }, 750);

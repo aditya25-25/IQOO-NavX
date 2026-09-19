@@ -72,11 +72,11 @@ export const DemoSimulationBar: React.FC<DemoSimulationBarProps> = ({
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-xs font-bold text-[#FFD400] border border-[#2B2F33] hover:border-[#FFD400]/40 transition-all active:scale-95 font-display cursor-pointer"
         >
           <Sliders size={13} />
-          <span>Demo Controls</span>
+          <span>Experience NavX</span>
         </button>
       </div>
 
-      {/* Developer Demo Simulation Modal / Drawer */}
+      {/* Experience NavX Simulation Modal / Drawer */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 select-none">
           <div className="w-full max-w-lg bg-[#111315] border border-[#2B2F33] sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -89,9 +89,9 @@ export const DemoSimulationBar: React.FC<DemoSimulationBarProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-[#F5F7F8] uppercase tracking-wider font-display">
-                    DEMO SIMULATION
+                    EXPERIENCE NAVX
                   </h3>
-                  <p className="text-[10px] text-[#A4A9AE]">Hackathon Scenario Control Center</p>
+                  <p className="text-[10px] text-[#A4A9AE]">Interactive Feature Simulation</p>
                 </div>
               </div>
 

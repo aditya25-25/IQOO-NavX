@@ -1,20 +1,36 @@
-import { Coordinates, MapRegion, Route } from '../types';
+import {
+  Coordinates,
+  MapRegion,
+  Route,
+} from '../types';
 import { calculateOfflineRoute } from './offlineRouter';
 import { calculateOnlineRoute } from './onlineRouter';
 
 export class RouteManager {
-  private isOfflineForced: boolean = true; // Offline-first by default for IQOO NavX
+  // When true, routing is forced to offline.
+  // App.tsx currently creates RouteManager(false),
+  // so the normal demo starts online.
+  private isOfflineForced: boolean;
 
   constructor(offlineFirst = true) {
     this.isOfflineForced = offlineFirst;
   }
 
-  public setOfflineSimulation(offline: boolean) {
+  public setOfflineSimulation(
+    offline: boolean
+  ) {
     this.isOfflineForced = offline;
   }
 
   public isOfflineMode(): boolean {
-    return this.isOfflineForced || !navigator.onLine;
+    const browserOffline =
+      typeof navigator !== 'undefined' &&
+      navigator.onLine === false;
+
+    return (
+      this.isOfflineForced ||
+      browserOffline
+    );
   }
 
   public async calculateRoute(
@@ -23,29 +39,76 @@ export class RouteManager {
     destination: Coordinates,
     destinationName: string,
     region: MapRegion
-  ): Promise<{ route: Route; source: 'offline' | 'online' } | null> {
-    // If offline mode is enabled or network is down, execute offline route solver directly
+  ): Promise<{
+    route: Route;
+    source: 'offline' | 'online';
+  } | null> {
+    // --------------------------------------------------
+    // OFFLINE MODE
+    // --------------------------------------------------
+
     if (this.isOfflineMode()) {
-      const offlineRoute = calculateOfflineRoute(origin, originName, destination, destinationName, region);
+      const offlineRoute =
+        calculateOfflineRoute(
+          origin,
+          originName,
+          destination,
+          destinationName,
+          region
+        );
+
       if (offlineRoute) {
-        return { route: offlineRoute, source: 'offline' };
+        return {
+          route: offlineRoute,
+          source: 'offline',
+        };
       }
+
       return null;
     }
 
-    // Attempt online first, then automatically fall back to offline
+    // --------------------------------------------------
+    // ONLINE MODE
+    // --------------------------------------------------
+
     try {
-      const onlineRoute = await calculateOnlineRoute(origin, originName, destination, destinationName);
+      const onlineRoute =
+        await calculateOnlineRoute(
+          origin,
+          originName,
+          destination,
+          destinationName
+        );
+
       if (onlineRoute) {
-        return { route: onlineRoute, source: 'online' };
+        return {
+          route: onlineRoute,
+          source: 'online',
+        };
       }
     } catch {
-      // Fallback
+      // Online routing failed.
+      // Automatically continue with offline routing.
     }
 
-    const offlineRoute = calculateOfflineRoute(origin, originName, destination, destinationName, region);
+    // --------------------------------------------------
+    // OFFLINE FALLBACK
+    // --------------------------------------------------
+
+    const offlineRoute =
+      calculateOfflineRoute(
+        origin,
+        originName,
+        destination,
+        destinationName,
+        region
+      );
+
     if (offlineRoute) {
-      return { route: offlineRoute, source: 'offline' };
+      return {
+        route: offlineRoute,
+        source: 'offline',
+      };
     }
 
     return null;

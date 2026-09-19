@@ -280,7 +280,9 @@ export const App: React.FC = () => {
 
   const isNavigating = navProgress.status === 'navigating' || navProgress.status === 'rerouting';
   const isPreviewing = navProgress.status === 'previewing' && navProgress.activeRoute !== null;
-  const isIdle = navProgress.status === 'idle';
+  const isIdle =
+  navProgress.status === 'idle' ||
+  navProgress.status === 'arrived';
 
   // If user explicitly switched to 'landing' overview
   if (viewMode === 'landing') {

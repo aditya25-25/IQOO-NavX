@@ -185,7 +185,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div className="text-xs text-[#A4A9AE] space-y-1 pt-1">
             <div className="flex justify-between">
               <span>Application Version:</span>
-              <span className="text-[#F5F7F8] font-mono">1.0.0-hackathon2026</span>
+              <span className="text-[#F5F7F8] font-mono">1.0.0</span>
             </div>
             <div className="flex justify-between">
               <span>Tagline:</span>

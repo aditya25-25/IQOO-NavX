@@ -213,7 +213,7 @@ export const App: React.FC = () => {
     });
   };
 
-  // Step-by-Step Hackathon Demo Dispatcher
+  // Simulation Scenario Dispatcher
   const handleRunDemoStep = (stepNumber: number) => {
     switch (stepNumber) {
       case 1:

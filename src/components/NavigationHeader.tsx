@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Radio, Zap, Globe, Smartphone, Monitor } from 'lucide-react';
 import { PositionState, BatteryState } from '../types';
+import { IQOOLogo } from './IQOOLogo';
 
 interface NavigationHeaderProps {
   isNavigating: boolean;
@@ -38,19 +39,11 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
           </button>
         ) : (
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-xl bg-[#FFD400] flex items-center justify-center font-black text-black text-xs font-display shadow-[0_0_12px_rgba(255,212,0,0.35)]">
-              iQ
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm tracking-wider text-[#F5F7F8] font-display">
-                  iQOO NavX
-                </span>
-                <span className="hidden sm:inline-block text-[9px] font-black px-2 py-0.5 rounded-full bg-[#FFD400]/15 text-[#FFD400] border border-[#FFD400]/30 font-display">
-                  OFFLINE
-                </span>
-              </div>
-            </div>
+            <IQOOLogo size="sm" variant="full" />
+            <div className="h-3.5 w-px bg-[#2B2F33]" />
+            <span className="font-extrabold text-sm tracking-wider text-[#F5F7F8] font-display">
+              NavX
+            </span>
           </div>
         )}
       </div>

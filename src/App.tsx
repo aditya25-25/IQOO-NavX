@@ -1,5 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
+
 import { REGIONS } from './data/regions';
+
 import {
   Coordinates,
   MapRegion,
@@ -8,10 +15,12 @@ import {
   BatteryState,
   AICommandResult,
 } from './types';
+
 import {
   NavigationController,
   NavigationProgress,
 } from './engine/navigationController';
+
 import { PositionFusionManager } from './sensors/positionFusion';
 import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
@@ -34,7 +43,10 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { UltraNavOverlay } from './components/UltraNavOverlay';
 import { VoiceAIPanel } from './components/VoiceAIPanel';
 import { NavXEngineDrawer } from './components/NavXEngineDrawer';
-import { BottomNavBar, TabType } from './components/BottomNavBar';
+import {
+  BottomNavBar,
+  TabType,
+} from './components/BottomNavBar';
 
 import { Sparkles, Zap } from 'lucide-react';
 
@@ -136,9 +148,8 @@ export const App: React.FC = () => {
   // NAVIGATION CONTROLLER
   // =========================================================
 
-  // IMPORTANT:
   // Keep ONE NavigationController instance alive.
-  // Region changes are handled through setRegion().
+  // Region changes are synchronized through setRegion().
   const navCtrl = useMemo(
     () =>
       new NavigationController(
@@ -196,6 +207,12 @@ export const App: React.FC = () => {
   const [toastMessage, setToastMessage] =
     useState<string | null>(null);
 
+  // Prevent overlapping toast timers.
+  const toastTimeoutRef =
+    useRef<ReturnType<typeof setTimeout> | null>(
+      null
+    );
+
   // =========================================================
   // REACTIVE ENGINE SUBSCRIPTIONS
   // =========================================================
@@ -238,14 +255,42 @@ export const App: React.FC = () => {
   }, [positionManager, navCtrl]);
 
   // =========================================================
+  // POSITION MANAGER CLEANUP
+  // =========================================================
+
+  useEffect(() => {
+    return () => {
+      positionManager.destroy();
+    };
+  }, [positionManager]);
+
+  // =========================================================
+  // TOAST CLEANUP
+  // =========================================================
+
+  useEffect(() => {
+    return () => {
+      if (
+        toastTimeoutRef.current !== null
+      ) {
+        clearTimeout(
+          toastTimeoutRef.current
+        );
+
+        toastTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // =========================================================
   // REGION SYNCHRONIZATION
   // =========================================================
 
   useEffect(() => {
-    // Keep the existing navigation controller
-    // synchronized with the selected region.
+    // Keep navigation controller synchronized.
     navCtrl.setRegion(activeRegion);
 
+    // Update saved locations.
     setSavedLocations(
       activeRegion.pois.filter(
         (p) => p.isSaved
@@ -262,6 +307,7 @@ export const App: React.FC = () => {
         (p) => p.category === 'college'
       ) || activeRegion.pois[1];
 
+    // Update origin React state.
     setOriginCoord(
       newHome.coordinate
     );
@@ -270,21 +316,46 @@ export const App: React.FC = () => {
       newHome.name
     );
 
+    // IMPORTANT:
+    // Reset the actual position-fusion engine too.
+    // This prevents coordinates from the previous
+    // region from carrying into the new region.
+    positionManager.resetPosition(
+      newHome.coordinate
+    );
+
     setSelectedDestination(
       newDestination
     );
-  }, [activeRegion, navCtrl]);
+  }, [
+    activeRegion,
+    navCtrl,
+    positionManager,
+  ]);
 
   // =========================================================
   // TOAST
   // =========================================================
 
-  const showToast = (message: string) => {
+  const showToast = (
+    message: string
+  ) => {
     setToastMessage(message);
 
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+    // Cancel previous toast timer.
+    if (
+      toastTimeoutRef.current !== null
+    ) {
+      clearTimeout(
+        toastTimeoutRef.current
+      );
+    }
+
+    toastTimeoutRef.current =
+      setTimeout(() => {
+        setToastMessage(null);
+        toastTimeoutRef.current = null;
+      }, 3500);
   };
 
   // =========================================================
@@ -303,7 +374,9 @@ export const App: React.FC = () => {
   const handleCalculateRoute = async (
     destination: POI
   ) => {
-    setSelectedDestination(destination);
+    setSelectedDestination(
+      destination
+    );
 
     const result =
       await routeManager.calculateRoute(
@@ -382,7 +455,9 @@ export const App: React.FC = () => {
   ) => {
     setIsVoiceModalOpen(false);
 
-    if (result.intent === 'STOP_NAV') {
+    if (
+      result.intent === 'STOP_NAV'
+    ) {
       navCtrl.stopNavigation();
 
       showToast(
@@ -392,7 +467,9 @@ export const App: React.FC = () => {
       return;
     }
 
-    if (result.intent === 'REROUTE') {
+    if (
+      result.intent === 'REROUTE'
+    ) {
       navCtrl.simulateMissedTurn();
 
       showToast(
@@ -415,12 +492,10 @@ export const App: React.FC = () => {
         showToast(
           'No destination selected for navigation'
         );
+
         return;
       }
 
-      // Calculate and start from the SAME route result.
-      // This avoids a race condition caused by
-      // waiting for React state to update.
       const route =
         await handleCalculateRoute(
           destination
@@ -556,19 +631,21 @@ export const App: React.FC = () => {
         break;
 
       // -----------------------------------------------------
-      // STEP 4 — CALCULATE OFFLINE ROUTE
+      // STEP 4 — CALCULATE ROUTE
       // -----------------------------------------------------
 
       case 4:
         if (collegePoi) {
-          handleCalculateRoute(
+          void handleCalculateRoute(
             collegePoi
-          );
+          ).then((route) => {
+            if (route) {
+              showToast(
+                'Step 4: Route calculated successfully'
+              );
+            }
+          });
         }
-
-        showToast(
-          'Step 4: Offline route calculated'
-        );
 
         break;
 
@@ -577,7 +654,7 @@ export const App: React.FC = () => {
       // -----------------------------------------------------
 
       case 5:
-        handleStartNavigation();
+        void handleStartNavigation();
 
         showToast(
           'Step 5: Turn-by-turn navigation started'
@@ -658,10 +735,15 @@ export const App: React.FC = () => {
       // STEP 10 — GPS RESTORED
       // -----------------------------------------------------
 
-      case 10:
+      case 10: {
+        const recoveryTarget =
+          navProgress.activeRoute?.destination ||
+          selectedDestination?.coordinate ||
+          collegePoi.coordinate;
+
         positionManager.setGpsQuality(
           'strong',
-          collegePoi.coordinate
+          recoveryTarget
         );
 
         showToast(
@@ -669,6 +751,7 @@ export const App: React.FC = () => {
         );
 
         break;
+      }
 
       // -----------------------------------------------------
       // STEP 11 — AI VOICE
@@ -790,10 +873,18 @@ export const App: React.FC = () => {
       {/* HEADER */}
 
       <NavigationHeader
-        isNavigating={isNavigating}
-        isOffline={isOfflineForced}
-        posState={posState}
-        batteryState={batteryState}
+        isNavigating={
+          isNavigating
+        }
+        isOffline={
+          isOfflineForced
+        }
+        posState={
+          posState
+        }
+        batteryState={
+          batteryState
+        }
         onBackOrStopNav={() =>
           navCtrl.stopNavigation()
         }
@@ -830,10 +921,18 @@ export const App: React.FC = () => {
           {/* ORIGIN ISLAND */}
 
           <OriginIsland
-            navProgress={navProgress}
-            posState={posState}
-            batteryState={batteryState}
-            isOffline={isOfflineForced}
+            navProgress={
+              navProgress
+            }
+            posState={
+              posState
+            }
+            batteryState={
+              batteryState
+            }
+            isOffline={
+              isOfflineForced
+            }
             onToggleUltraMode={() =>
               batteryManager.toggleUltraMode()
             }
@@ -842,13 +941,21 @@ export const App: React.FC = () => {
           {/* TURN GUIDANCE HUD */}
 
           <TurnGuidanceHUD
-            progress={navProgress}
-            posState={posState}
+            progress={
+              navProgress
+            }
+            posState={
+              posState
+            }
             activeRoute={
               navProgress.activeRoute
             }
-            isMuted={isVoiceMuted}
-            isOffline={isOfflineForced}
+            isMuted={
+              isVoiceMuted
+            }
+            isOffline={
+              isOfflineForced
+            }
             onToggleMute={() => {
               const muted =
                 !isVoiceMuted;
@@ -868,7 +975,9 @@ export const App: React.FC = () => {
               navCtrl.simulateMissedTurn()
             }
             onOpenVoice={() =>
-              setIsVoiceModalOpen(true)
+              setIsVoiceModalOpen(
+                true
+              )
             }
           />
 
@@ -896,7 +1005,10 @@ export const App: React.FC = () => {
                 batteryState.isUltraMode
               }
               onSelectPOI={(poi) => {
-                setDetailedPoi(poi);
+                setDetailedPoi(
+                  poi
+                );
+
                 setIsDestinationDetailsOpen(
                   true
                 );
@@ -913,7 +1025,9 @@ export const App: React.FC = () => {
                 savedLocations={
                   savedLocations
                 }
-                posState={posState}
+                posState={
+                  posState
+                }
                 batteryState={
                   batteryState
                 }
@@ -944,6 +1058,7 @@ export const App: React.FC = () => {
                   setDetailedPoi(
                     poi
                   );
+
                   setIsDestinationDetailsOpen(
                     true
                   );
@@ -1032,7 +1147,9 @@ export const App: React.FC = () => {
           {/* BOTTOM NAVIGATION */}
 
           <BottomNavBar
-            activeTab={activeTab}
+            activeTab={
+              activeTab
+            }
             onChange={
               handleSelectTab
             }
@@ -1062,7 +1179,9 @@ export const App: React.FC = () => {
               navProgress={
                 navProgress
               }
-              posState={posState}
+              posState={
+                posState
+              }
               batteryState={
                 batteryState
               }
@@ -1126,7 +1245,9 @@ export const App: React.FC = () => {
               : 'Simulating Online Mode'
           );
         }}
-        posState={posState}
+        posState={
+          posState
+        }
         onSetGpsQuality={(quality) => {
           positionManager.setGpsQuality(
             quality,
@@ -1192,7 +1313,9 @@ export const App: React.FC = () => {
             false
           );
 
-          setDetailedPoi(poi);
+          setDetailedPoi(
+            poi
+          );
 
           setIsDestinationDetailsOpen(
             true
@@ -1213,7 +1336,9 @@ export const App: React.FC = () => {
         isOpen={
           isDestinationDetailsOpen
         }
-        poi={detailedPoi}
+        poi={
+          detailedPoi
+        }
         onClose={() =>
           setIsDestinationDetailsOpen(
             false
@@ -1227,7 +1352,7 @@ export const App: React.FC = () => {
             false
           );
 
-          handleCalculateRoute(
+          void handleCalculateRoute(
             poi
           );
         }}
@@ -1267,7 +1392,7 @@ export const App: React.FC = () => {
             false
           );
 
-          handleCalculateRoute(
+          void handleCalculateRoute(
             poi
           );
         }}
@@ -1317,8 +1442,8 @@ export const App: React.FC = () => {
           activeRegion
         }
         onSelectRegion={(region) => {
-          // Don't allow an old navigation session
-          // to continue while switching regions.
+          // Stop old navigation before switching
+          // to another region.
           if (
             navProgress.status ===
               'navigating' ||
@@ -1332,7 +1457,9 @@ export const App: React.FC = () => {
             navCtrl.stopNavigation();
           }
 
-          setActiveRegion(region);
+          setActiveRegion(
+            region
+          );
 
           showToast(
             `Active offline region set to: ${region.name}`

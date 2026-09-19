@@ -101,10 +101,10 @@ export const App: React.FC = () => {
   // ROUTE MANAGER
   // =========================================================
 
-  const routeManager = useMemo(
-    () => new RouteManager(true),
-    []
-  );
+ const routeManager = useMemo(
+  () => new RouteManager(true),
+  []
+);
 
   // Start ONLINE.
   // Demo switches to offline at Step 6.

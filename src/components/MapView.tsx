@@ -65,20 +65,20 @@ export const MapView: React.FC<MapViewProps> = ({
       const fromNode = activeRegion.nodes[edge.from];
       const toNode = activeRegion.nodes[edge.to];
       if (fromNode && toNode) {
-        let color = isUltraMode ? '#222222' : '#1a2233';
+        let color = isUltraMode ? '#1A1A1A' : '#191C1F';
         let weight = 4;
         let dashArray = undefined;
 
         if (edge.isHighway) {
-          color = isUltraMode ? '#444444' : '#28354f';
+          color = isUltraMode ? '#333333' : '#22262A';
           weight = 6;
         }
         if (edge.isPoorConnectivity) {
-          color = isUltraMode ? '#ff0055' : '#e11d48';
+          color = isUltraMode ? '#EF4444' : '#F59E0B';
           dashArray = '6, 6';
         }
         if (edge.isUnpaved) {
-          color = '#b45309';
+          color = '#B45309';
           dashArray = '4, 4';
         }
 
@@ -87,7 +87,7 @@ export const MapView: React.FC<MapViewProps> = ({
             [fromNode.coord.lat, fromNode.coord.lng],
             [toNode.coord.lat, toNode.coord.lng],
           ],
-          { color, weight, opacity: 0.85, dashArray }
+          { color, weight, opacity: 0.9, dashArray }
         );
         line.addTo(roadGraphLayerRef.current!);
       }
@@ -106,16 +106,16 @@ export const MapView: React.FC<MapViewProps> = ({
       const isSaved = poi.isSaved;
       const markerHtml = `
         <div style="
-          background: ${isSaved ? '#ff4800' : '#141a29'};
-          border: 2px solid ${isSaved ? '#ffffff' : '#3b4861'};
-          color: #ffffff;
+          background: ${isSaved ? '#FFD400' : '#191C1F'};
+          border: 2px solid ${isSaved ? '#000000' : '#2B2F33'};
+          color: ${isSaved ? '#000000' : '#F5F7F8'};
           border-radius: 9999px;
           padding: 4px 9px;
           font-size: 11px;
-          font-weight: 700;
+          font-weight: 800;
           font-family: 'Outfit', sans-serif;
           white-space: nowrap;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+          box-shadow: 0 4px 14px rgba(0,0,0,0.7);
           display: flex;
           align-items: center;
           gap: 5px;
@@ -151,7 +151,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
     if (activeRoute && activeRoute.coordinates.length > 1) {
       const latlngs: [number, number][] = activeRoute.coordinates.map((c) => [c.lat, c.lng]);
-      const routeColor = positionState.isSensorAssisted ? '#00e5ff' : '#ff4800';
+      const routeColor = positionState.isSensorAssisted ? '#3B82F6' : '#FFD400';
 
       routeLayerRef.current = L.polyline(latlngs, {
         color: routeColor,
@@ -179,7 +179,7 @@ export const MapView: React.FC<MapViewProps> = ({
     const lng = currentPosition.lng;
 
     // Vehicle Marker
-    const markerColor = positionState.isSensorAssisted ? '#00e5ff' : '#ff4800';
+    const markerColor = positionState.isSensorAssisted ? '#3B82F6' : '#FFD400';
     const vehicleHtml = `
       <div class="vehicle-marker-wrapper" style="transform: rotate(${positionState.heading}deg);">
         <div class="vehicle-pulse-ring" style="border-color: ${markerColor}; background: ${markerColor}25;"></div>
@@ -187,14 +187,14 @@ export const MapView: React.FC<MapViewProps> = ({
           width: 28px;
           height: 28px;
           background: ${markerColor};
-          border: 3px solid #ffffff;
+          border: 3px solid #000000;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 18px ${markerColor};
+          box-shadow: 0 0 16px ${markerColor};
         ">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#000000" stroke="#000000" stroke-width="2">
             <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
           </svg>
         </div>

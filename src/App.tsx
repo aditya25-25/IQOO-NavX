@@ -6,17 +6,21 @@ import { NavigationController, NavigationProgress } from './engine/navigationCon
 import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
+import { SplashScreen } from './components/SplashScreen';
 import { OriginIsland } from './components/OriginIsland';
 import { MapView } from './components/MapView';
 import { TurnGuidanceHUD } from './components/TurnGuidanceHUD';
 import { RouteContextCard } from './components/RouteContextCard';
 import { RoutePreviewCard } from './components/RoutePreviewCard';
 import { HomeScreenOverlay } from './components/HomeScreenOverlay';
+import { SearchScreen } from './components/SearchScreen';
+import { DestinationDetailsModal } from './components/DestinationDetailsModal';
+import { SavedLocationsScreen } from './components/SavedLocationsScreen';
+import { DownloadRegionScreen } from './components/DownloadRegionScreen';
+import { SettingsScreen } from './components/SettingsScreen';
 import { UltraNavOverlay } from './components/UltraNavOverlay';
-import { DemoSimulationBar } from './components/DemoSimulationBar';
-import { SearchAndSavedModal } from './components/SearchAndSavedModal';
 import { VoiceAIPanel } from './components/VoiceAIPanel';
-import { SettingsModal } from './components/SettingsModal';
+import { DemoSimulationBar } from './components/DemoSimulationBar';
 import { BottomNavBar, TabType } from './components/BottomNavBar';
 import { 
   Smartphone, 
@@ -26,13 +30,16 @@ import {
 } from 'lucide-react';
 
 export const App: React.FC = () => {
+  // App Launch Splash State
+  const [showSplash, setShowSplash] = useState(true);
+
   // Region & Saved Places
   const [activeRegion, setActiveRegion] = useState<MapRegion>(REGIONS[0]);
   const [savedLocations, setSavedLocations] = useState<POI[]>(
     REGIONS[0].pois.filter((p) => p.isSaved)
   );
 
-  // Active Tab
+  // Active Bottom Tab
   const [activeTab, setActiveTab] = useState<TabType>('map');
 
   // Initial Origin (Home) & Destination (College)
@@ -42,6 +49,7 @@ export const App: React.FC = () => {
   const [originCoord, setOriginCoord] = useState<Coordinates>(homePoi.coordinate);
   const [originName, setOriginName] = useState<string>(homePoi.name);
   const [selectedDestination, setSelectedDestination] = useState<POI | null>(collegePoi);
+  const [detailedPoi, setDetailedPoi] = useState<POI | null>(null);
 
   // Position Manager & Fusion Instance
   const positionManager = useMemo(() => new PositionFusionManager(homePoi.coordinate), []);
@@ -62,11 +70,13 @@ export const App: React.FC = () => {
   const [batteryState, setBatteryState] = useState<BatteryState>(batteryManager.getState());
   const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(false);
 
-  // Modal Dialogs & Screens
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [searchModalTab, setSearchModalTab] = useState<'places' | 'offline_maps'>('places');
+  // Mobile Screen Overlays & Modals
+  const [isSearchScreenOpen, setIsSearchScreenOpen] = useState(false);
+  const [isSavedLocationsOpen, setIsSavedLocationsOpen] = useState(false);
+  const [isDownloadRegionOpen, setIsDownloadRegionOpen] = useState(false);
+  const [isSettingsScreenOpen, setIsSettingsScreenOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isDestinationDetailsOpen, setIsDestinationDetailsOpen] = useState(false);
   const [isPhoneFrameView, setIsPhoneFrameView] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -153,10 +163,10 @@ export const App: React.FC = () => {
     setIsVoiceModalOpen(false);
     if (result.intent === 'STOP_NAV') {
       navCtrl.stopNavigation();
-      showToast('Navigation stopped via AI voice command');
+      showToast('Navigation stopped via voice command');
     } else if (result.intent === 'REROUTE') {
       navCtrl.simulateMissedTurn();
-      showToast('Offline reroute triggered via AI voice command');
+      showToast('Offline reroute triggered via voice command');
     } else if (result.intent === 'NAVIGATE' || result.intent === 'GO_HOME' || result.intent === 'GO_SAVED') {
       if (result.matchedPOI) {
         handleCalculateRoute(result.matchedPOI);
@@ -168,33 +178,48 @@ export const App: React.FC = () => {
     }
   };
 
-  // Tab switcher router
+  // Tab Navigation Router
   const handleSelectTab = (tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'saved') {
-      setSearchModalTab('places');
-      setIsSearchModalOpen(true);
+      setIsSavedLocationsOpen(true);
     } else if (tab === 'regions') {
-      setSearchModalTab('offline_maps');
-      setIsSearchModalOpen(true);
+      setIsDownloadRegionOpen(true);
     } else if (tab === 'settings') {
-      setIsSettingsModalOpen(true);
+      setIsSettingsScreenOpen(true);
     }
+  };
+
+  // Toggle Saved POI
+  const handleToggleSavePOI = (poi: POI) => {
+    setSavedLocations((prev) => {
+      const exists = prev.some((p) => p.id === poi.id);
+      if (exists) {
+        showToast(`Removed "${poi.name}" from saved places`);
+        return prev.filter((p) => p.id !== poi.id);
+      } else {
+        showToast(`Saved "${poi.name}" to favorites`);
+        return [...prev, { ...poi, isSaved: true }];
+      }
+    });
   };
 
   // Step-by-Step Hackathon Demo Dispatcher
   const handleRunDemoStep = (stepNumber: number) => {
     switch (stepNumber) {
       case 1:
-        showToast('Step 1: Opened IQOO NavX');
+        setShowSplash(true);
         break;
       case 2:
-        setSearchModalTab('offline_maps');
-        setIsSearchModalOpen(true);
+        setIsDownloadRegionOpen(true);
         showToast('Step 2: Viewing Regional Offline Map Packages');
         break;
       case 3:
-        if (collegePoi) setSelectedDestination(collegePoi);
+        if (collegePoi) {
+          setSelectedDestination(collegePoi);
+          setDetailedPoi(collegePoi);
+          setIsDestinationDetailsOpen(true);
+        }
         showToast('Step 3: Selected Destination (College)');
         break;
       case 4:
@@ -248,23 +273,28 @@ export const App: React.FC = () => {
   const isIdle = navProgress.status === 'idle';
 
   return (
-    <div className="min-h-screen bg-[#07080b] text-neutral-100 flex flex-col items-center justify-start relative overflow-x-hidden font-sans">
-      {/* Top Header & Viewport Switcher */}
-      <header className="w-full max-w-6xl px-4 py-2.5 flex items-center justify-between border-b border-white/5 z-30 select-none">
+    <div className="min-h-screen bg-[#08090A] text-[#F5F7F8] flex flex-col items-center justify-start relative overflow-x-hidden font-sans">
+      {/* 1. App Launch Splash Screen */}
+      {showSplash && (
+        <SplashScreen onComplete={() => setShowSplash(false)} />
+      )}
+
+      {/* Top Header & Mobile/Desktop Frame Switcher */}
+      <header className="w-full max-w-6xl px-4 py-2 flex items-center justify-between border-b border-[#2B2F33] z-30 select-none">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-xl bg-[#ff4800] flex items-center justify-center font-black text-black font-display shadow-[0_0_15px_#ff4800]">
+          <div className="w-7 h-7 rounded-xl bg-[#FFD400] flex items-center justify-center font-black text-black text-xs font-display shadow-[0_0_12px_rgba(255,212,0,0.35)]">
             iQ
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-sm tracking-wider text-white font-display">
+              <span className="font-extrabold text-sm tracking-wider text-[#F5F7F8] font-display">
                 IQOO NavX
               </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#ff4800]/15 text-[#ff4800] border border-[#ff4800]/30 font-display">
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-[#FFD400]/15 text-[#FFD400] border border-[#FFD400]/30 font-display">
                 OFFLINE ENGINE
               </span>
             </div>
-            <p className="text-[10px] text-neutral-400">Offline-First Sensor-Assisted Navigation System</p>
+            <p className="text-[10px] text-[#A4A9AE] font-display">Navigate. Even When It's Not Perfect.</p>
           </div>
         </div>
 
@@ -272,7 +302,7 @@ export const App: React.FC = () => {
           {/* Frame View Toggle */}
           <button
             onClick={() => setIsPhoneFrameView(!isPhoneFrameView)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-neutral-300 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-xs font-semibold text-[#A4A9AE] hover:text-[#F5F7F8] border border-[#2B2F33] transition-colors font-display"
           >
             {isPhoneFrameView ? <Monitor size={14} /> : <Smartphone size={14} />}
             <span>{isPhoneFrameView ? 'Full Width' : 'Phone Frame'}</span>
@@ -280,14 +310,14 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content Area: Responsive Container */}
-      <main className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-3 transition-all ${
+      {/* Main Content Container: Mobile Viewport */}
+      <main className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
         isPhoneFrameView ? 'max-w-md' : 'max-w-6xl'
       }`}>
-        <div className={`w-full flex-1 flex flex-col bg-[#0b0e17] sm:rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden ${
+        <div className={`w-full flex-1 flex flex-col bg-[#08090A] sm:rounded-3xl border border-[#2B2F33] shadow-2xl relative overflow-hidden ${
           isPhoneFrameView ? 'min-h-[820px] max-h-[880px]' : 'min-h-[720px]'
         }`}>
-          {/* 1. Origin Island floating widget */}
+          {/* 1. Origin Island floating status component */}
           <OriginIsland
             navProgress={navProgress}
             posState={posState}
@@ -310,9 +340,10 @@ export const App: React.FC = () => {
             }}
             onStopNav={() => navCtrl.stopNavigation()}
             onReroute={() => navCtrl.simulateMissedTurn()}
+            onOpenVoice={() => setIsVoiceModalOpen(true)}
           />
 
-          {/* 3. Interactive Map View (Hero Element) */}
+          {/* 3. Interactive Map View (Visual Hero) */}
           <div className="flex-1 w-full relative min-h-[380px]">
             <MapView
               currentPosition={posState.currentPosition}
@@ -321,7 +352,10 @@ export const App: React.FC = () => {
               activeRegion={activeRegion}
               savedLocations={savedLocations}
               isUltraMode={batteryState.isUltraMode}
-              onSelectPOI={(poi) => handleCalculateRoute(poi)}
+              onSelectPOI={(poi) => {
+                setDetailedPoi(poi);
+                setIsDestinationDetailsOpen(true);
+              }}
             />
 
             {/* Float Route Context Card if Navigating */}
@@ -340,21 +374,18 @@ export const App: React.FC = () => {
               posState={posState}
               batteryState={batteryState}
               isOffline={isOfflineForced}
-              onOpenSearch={() => {
-                setSearchModalTab('places');
-                setIsSearchModalOpen(true);
-              }}
+              onOpenSearch={() => setIsSearchScreenOpen(true)}
               onOpenVoice={() => setIsVoiceModalOpen(true)}
-              onOpenRegions={() => {
-                setSearchModalTab('offline_maps');
-                setIsSearchModalOpen(true);
+              onOpenSavedLocations={() => setIsSavedLocationsOpen(true)}
+              onOpenDownloadRegion={() => setIsDownloadRegionOpen(true)}
+              onSelectDestination={(poi) => {
+                setDetailedPoi(poi);
+                setIsDestinationDetailsOpen(true);
               }}
-              onSelectDestination={(poi) => handleCalculateRoute(poi)}
-              onToggleUltraMode={() => batteryManager.toggleUltraMode()}
             />
           )}
 
-          {/* 5. Route Preview Card (When Previewing Route) */}
+          {/* 5. Route Preview Screen (When Previewing Route) */}
           {isPreviewing && navProgress.activeRoute && (
             <RoutePreviewCard
               route={navProgress.activeRoute}
@@ -363,18 +394,18 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* 6. Low Battery Warning Prompt Banner */}
+          {/* 6. Battery Warning Banner (< 20%) */}
           {batteryState.isLowBattery && !batteryState.isUltraMode && (
             <div className="mx-4 my-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-500/40 text-amber-200 flex items-center justify-between z-30 select-none">
               <div className="flex items-center gap-2">
-                <Zap size={16} className="text-amber-400 animate-pulse" />
+                <Zap size={16} className="text-[#FFD400] animate-pulse" />
                 <span className="text-xs font-semibold">
-                  Battery low ({Math.round(batteryState.level * 100)}%) — Enable Ultra Nav Mode?
+                  Battery low ({Math.round(batteryState.level * 100)}%) — Ultra Navigation Mode recommended
                 </span>
               </div>
               <button
                 onClick={() => batteryManager.toggleUltraMode(true)}
-                className="px-3 py-1 rounded-xl bg-[#ff4800] text-black font-extrabold text-xs hover:bg-[#ff6524] transition-colors font-display"
+                className="px-3 py-1 rounded-xl bg-[#FFD400] text-black font-extrabold text-xs hover:bg-[#e6bf00] transition-colors font-display"
               >
                 Enable
               </button>
@@ -388,8 +419,8 @@ export const App: React.FC = () => {
             isNavigating={isNavigating}
           />
 
-          {/* 8. Demo Simulation Bar for Judges & Testing */}
-          <div className="w-full bg-[#0b0e17] border-t border-white/5 pt-1">
+          {/* 8. Demo Simulation Controls for Judges */}
+          <div className="w-full bg-[#08090A] border-t border-[#2B2F33] pt-1">
             <DemoSimulationBar
               isOffline={isOfflineForced}
               onToggleInternet={() => {
@@ -421,13 +452,13 @@ export const App: React.FC = () => {
 
           {/* Toast Notification Banner */}
           {toastMessage && (
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#ff4800] text-black font-bold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 font-display">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#FFD400] text-black font-extrabold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 font-display">
               <Sparkles size={14} />
               <span>{toastMessage}</span>
             </div>
           )}
 
-          {/* Ultra Navigation Mode Minimalist High-Power-Saving Overlay */}
+          {/* Ultra Navigation Mode Minimalist Overlay */}
           {batteryState.isUltraMode && (
             <UltraNavOverlay
               navProgress={navProgress}
@@ -445,25 +476,83 @@ export const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modals */}
-      <SearchAndSavedModal
-        isOpen={isSearchModalOpen}
-        initialTab={searchModalTab}
+      {/* Mobile Screens & Modals */}
+      <SearchScreen
+        isOpen={isSearchScreenOpen}
+        onClose={() => setIsSearchScreenOpen(false)}
+        activeRegion={activeRegion}
+        currentCoord={posState.currentPosition}
+        savedLocations={savedLocations}
+        onSelectDestination={(poi) => {
+          setIsSearchScreenOpen(false);
+          setDetailedPoi(poi);
+          setIsDestinationDetailsOpen(true);
+        }}
+        onOpenVoice={() => setIsVoiceModalOpen(true)}
+      />
+
+      <DestinationDetailsModal
+        isOpen={isDestinationDetailsOpen}
+        poi={detailedPoi}
+        onClose={() => setIsDestinationDetailsOpen(false)}
+        currentCoord={posState.currentPosition}
+        onStartRoute={(poi) => {
+          setIsDestinationDetailsOpen(false);
+          handleCalculateRoute(poi);
+        }}
+        onToggleSave={handleToggleSavePOI}
+        onOpenVoice={() => setIsVoiceModalOpen(true)}
+      />
+
+      <SavedLocationsScreen
+        isOpen={isSavedLocationsOpen}
         onClose={() => {
-          setIsSearchModalOpen(false);
+          setIsSavedLocationsOpen(false);
+          setActiveTab('map');
+        }}
+        savedLocations={savedLocations}
+        currentCoord={posState.currentPosition}
+        onSelectDestination={(poi) => {
+          setIsSavedLocationsOpen(false);
+          handleCalculateRoute(poi);
+        }}
+        onAddLocation={(newPoi) => {
+          setSavedLocations((prev) => [...prev, newPoi]);
+          showToast(`Added "${newPoi.name}" to saved locations`);
+        }}
+        onDeleteLocation={(id) => {
+          setSavedLocations((prev) => prev.filter((p) => p.id !== id));
+          showToast('Removed saved location');
+        }}
+      />
+
+      <DownloadRegionScreen
+        isOpen={isDownloadRegionOpen}
+        onClose={() => {
+          setIsDownloadRegionOpen(false);
           setActiveTab('map');
         }}
         activeRegion={activeRegion}
         onSelectRegion={(reg) => {
           setActiveRegion(reg);
-          showToast(`Active map switched to: ${reg.name}`);
+          showToast(`Active offline region set to: ${reg.name}`);
         }}
-        onSelectDestination={(poi) => {
-          setSelectedDestination(poi);
-          handleCalculateRoute(poi);
+      />
+
+      <SettingsScreen
+        isOpen={isSettingsScreenOpen}
+        onClose={() => {
+          setIsSettingsScreenOpen(false);
+          setActiveTab('map');
         }}
-        onOpenVoice={() => setIsVoiceModalOpen(true)}
-        savedLocations={savedLocations}
+        batteryState={batteryState}
+        onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+        isVoiceMuted={isVoiceMuted}
+        onToggleMute={() => {
+          const muted = !isVoiceMuted;
+          setIsVoiceMuted(muted);
+          voiceEngine.setMuted(muted);
+        }}
       />
 
       <VoiceAIPanel
@@ -472,18 +561,6 @@ export const App: React.FC = () => {
         activeRegion={activeRegion}
         savedLocations={savedLocations}
         onExecuteCommand={handleExecuteAICommand}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => {
-          setIsSettingsModalOpen(false);
-          setActiveTab('map');
-        }}
-        posState={posState}
-        batteryState={batteryState}
-        activeRegion={activeRegion}
-        onToggleUltraMode={() => batteryManager.toggleUltraMode()}
       />
     </div>
   );

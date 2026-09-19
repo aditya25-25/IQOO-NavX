@@ -22,7 +22,7 @@ import { DownloadRegionScreen } from './components/DownloadRegionScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { UltraNavOverlay } from './components/UltraNavOverlay';
 import { VoiceAIPanel } from './components/VoiceAIPanel';
-import { DemoSimulationBar } from './components/DemoSimulationBar';
+import { NavXEngineDrawer } from './components/NavXEngineDrawer';
 import { BottomNavBar, TabType } from './components/BottomNavBar';
 import { 
   Sparkles,
@@ -30,8 +30,8 @@ import {
 } from 'lucide-react';
 
 export const App: React.FC = () => {
-  // Main View State: 'landing' vs 'app'
-  const [viewMode, setViewMode] = useState<'landing' | 'app'>('landing');
+  // Main View State: default to 'app' for immediate navigation experience
+  const [viewMode, setViewMode] = useState<'app' | 'landing'>('app');
 
   // App Launch Splash State
   const [showSplash, setShowSplash] = useState(false);
@@ -80,6 +80,7 @@ export const App: React.FC = () => {
   const [isSettingsScreenOpen, setIsSettingsScreenOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isDestinationDetailsOpen, setIsDestinationDetailsOpen] = useState(false);
+  const [isEngineDrawerOpen, setIsEngineDrawerOpen] = useState(false);
   const [isPhoneFrameView, setIsPhoneFrameView] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -281,7 +282,7 @@ export const App: React.FC = () => {
   const isPreviewing = navProgress.status === 'previewing' && navProgress.activeRoute !== null;
   const isIdle = navProgress.status === 'idle';
 
-  // Render Landing Page if in 'landing' mode
+  // If user explicitly switched to 'landing' overview
   if (viewMode === 'landing') {
     return <LandingPage onLaunchApp={handleLaunchApp} />;
   }
@@ -305,7 +306,7 @@ export const App: React.FC = () => {
         onTogglePhoneFrame={() => setIsPhoneFrameView(!isPhoneFrameView)}
       />
 
-      {/* Main Content Container: Mobile Viewport */}
+      {/* Main Content Container: Mobile-First Viewport */}
       <main className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
         isPhoneFrameView ? 'max-w-md' : 'max-w-6xl'
       }`}>
@@ -338,8 +339,8 @@ export const App: React.FC = () => {
             onOpenVoice={() => setIsVoiceModalOpen(true)}
           />
 
-          {/* 3. Interactive Map View (Visual Hero) */}
-          <div className="flex-1 w-full relative min-h-[380px]">
+          {/* 3. Interactive Map View (Dominating Viewport) */}
+          <div className="flex-1 w-full relative min-h-[420px]">
             <MapView
               currentPosition={posState.currentPosition}
               positionState={posState}
@@ -353,32 +354,33 @@ export const App: React.FC = () => {
               }}
             />
 
+            {/* 4. Home Screen Overlay (When Idle: floating search & quick chips) */}
+            {isIdle && (
+              <HomeScreenOverlay
+                activeRegion={activeRegion}
+                savedLocations={savedLocations}
+                posState={posState}
+                batteryState={batteryState}
+                isOffline={isOfflineForced}
+                onOpenSearch={() => setIsSearchScreenOpen(true)}
+                onOpenVoice={() => setIsVoiceModalOpen(true)}
+                onOpenSavedLocations={() => setIsSavedLocationsOpen(true)}
+                onOpenDownloadRegion={() => setIsDownloadRegionOpen(true)}
+                onSelectDestination={(poi) => {
+                  setDetailedPoi(poi);
+                  setIsDestinationDetailsOpen(true);
+                }}
+                onOpenEngineDrawer={() => setIsEngineDrawerOpen(true)}
+              />
+            )}
+
             {/* Float Route Context Card if Navigating */}
             {isNavigating && navProgress.activeRoute && (
-              <div className="absolute bottom-3 left-0 right-0 z-30">
+              <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
                 <RouteContextCard context={navProgress.activeRoute.context} />
               </div>
             )}
           </div>
-
-          {/* 4. Home Screen Overlay (When Idle) */}
-          {isIdle && (
-            <HomeScreenOverlay
-              activeRegion={activeRegion}
-              savedLocations={savedLocations}
-              posState={posState}
-              batteryState={batteryState}
-              isOffline={isOfflineForced}
-              onOpenSearch={() => setIsSearchScreenOpen(true)}
-              onOpenVoice={() => setIsVoiceModalOpen(true)}
-              onOpenSavedLocations={() => setIsSavedLocationsOpen(true)}
-              onOpenDownloadRegion={() => setIsDownloadRegionOpen(true)}
-              onSelectDestination={(poi) => {
-                setDetailedPoi(poi);
-                setIsDestinationDetailsOpen(true);
-              }}
-            />
-          )}
 
           {/* 5. Route Preview Screen (When Previewing Route) */}
           {isPreviewing && navProgress.activeRoute && (
@@ -414,37 +416,6 @@ export const App: React.FC = () => {
             isNavigating={isNavigating}
           />
 
-          {/* 8. Demo Simulation Controls for Judges (Collapsible Drawer) */}
-          <div className="w-full bg-[#08090A] border-t border-[#2B2F33] pt-1">
-            <DemoSimulationBar
-              isOffline={isOfflineForced}
-              onToggleInternet={() => {
-                const nextState = !isOfflineForced;
-                setIsOfflineForced(nextState);
-                routeManager.setOfflineSimulation(nextState);
-                showToast(nextState ? 'Simulating Offline Mode (No Internet)' : 'Simulating Online Mode');
-              }}
-              posState={posState}
-              onSetGpsQuality={(quality) => {
-                positionManager.setGpsQuality(quality, collegePoi.coordinate);
-                showToast(
-                  quality === 'weak'
-                    ? 'GPS Weak — Position Fusion switched to IMU Dead Reckoning'
-                    : 'GPS Restored — Position smoothly corrected'
-                );
-              }}
-              onSimulateMissedTurn={() => {
-                navCtrl.simulateMissedTurn();
-                showToast('Missed turn simulated! Calculating offline alternative route...');
-              }}
-              batteryState={batteryState}
-              onSetBatteryLevel={(lvl) => batteryManager.setSimulatedBatteryLevel(lvl)}
-              onToggleUltraMode={() => batteryManager.toggleUltraMode()}
-              navProgress={navProgress}
-              onRunAutoDemoStep={(step) => handleRunDemoStep(step)}
-            />
-          </div>
-
           {/* Toast Notification Banner */}
           {toastMessage && (
             <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#FFD400] text-black font-extrabold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 font-display">
@@ -470,6 +441,37 @@ export const App: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* NavX Technology & Simulation Drawer */}
+      <NavXEngineDrawer
+        isOpen={isEngineDrawerOpen}
+        onClose={() => setIsEngineDrawerOpen(false)}
+        isOffline={isOfflineForced}
+        onToggleInternet={() => {
+          const nextState = !isOfflineForced;
+          setIsOfflineForced(nextState);
+          routeManager.setOfflineSimulation(nextState);
+          showToast(nextState ? 'Simulating Offline Mode (No Internet)' : 'Simulating Online Mode');
+        }}
+        posState={posState}
+        onSetGpsQuality={(quality) => {
+          positionManager.setGpsQuality(quality, collegePoi.coordinate);
+          showToast(
+            quality === 'weak'
+              ? 'GPS Weak — Position Fusion switched to IMU Dead Reckoning'
+              : 'GPS Restored — Position smoothly corrected'
+          );
+        }}
+        onSimulateMissedTurn={() => {
+          navCtrl.simulateMissedTurn();
+          showToast('Missed turn simulated! Calculating offline alternative route...');
+        }}
+        batteryState={batteryState}
+        onSetBatteryLevel={(lvl) => batteryManager.setSimulatedBatteryLevel(lvl)}
+        onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+        navProgress={navProgress}
+        onRunAutoDemoStep={(step) => handleRunDemoStep(step)}
+      />
 
       {/* Mobile Screens & Modals */}
       <SearchScreen

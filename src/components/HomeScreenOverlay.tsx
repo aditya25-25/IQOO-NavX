@@ -3,16 +3,14 @@ import {
   Search, 
   Mic, 
   MapPin, 
-  DownloadCloud, 
-  HardDrive, 
   Home, 
   GraduationCap, 
   Building2, 
   Cross, 
   Fuel, 
   Train,
-  ArrowRight,
-  Bookmark
+  Radio,
+  Sparkles
 } from 'lucide-react';
 import { MapRegion, POI, PositionState, BatteryState } from '../types';
 
@@ -20,194 +18,122 @@ interface HomeScreenOverlayProps {
   activeRegion: MapRegion;
   savedLocations: POI[];
   posState: PositionState;
-  batteryState: BatteryState;
+  batteryState?: BatteryState;
   isOffline: boolean;
   onOpenSearch: () => void;
   onOpenVoice: () => void;
   onOpenSavedLocations: () => void;
   onOpenDownloadRegion: () => void;
   onSelectDestination: (poi: POI) => void;
+  onOpenEngineDrawer: () => void;
 }
 
 export const HomeScreenOverlay: React.FC<HomeScreenOverlayProps> = ({
   activeRegion,
   savedLocations,
   posState,
-  batteryState,
   isOffline,
   onOpenSearch,
   onOpenVoice,
-  onOpenSavedLocations,
-  onOpenDownloadRegion,
   onSelectDestination,
+  onOpenEngineDrawer,
 }) => {
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'college':
-        return <GraduationCap size={16} className="text-[#FFD400]" />;
+        return <GraduationCap size={15} className="text-[#FFD400]" />;
       case 'home':
-        return <Home size={16} className="text-[#22C55E]" />;
+        return <Home size={15} className="text-[#22C55E]" />;
       case 'work':
       case 'tech_park':
-        return <Building2 size={16} className="text-[#3B82F6]" />;
+        return <Building2 size={15} className="text-[#3B82F6]" />;
       case 'hospital':
-        return <Cross size={16} className="text-[#EF4444]" />;
+        return <Cross size={15} className="text-[#EF4444]" />;
       case 'fuel':
-        return <Fuel size={16} className="text-[#F59E0B]" />;
+        return <Fuel size={15} className="text-[#F59E0B]" />;
       case 'transit':
-        return <Train size={16} className="text-purple-400" />;
+        return <Train size={15} className="text-purple-400" />;
       default:
-        return <MapPin size={16} className="text-[#FFD400]" />;
+        return <MapPin size={15} className="text-[#FFD400]" />;
     }
   };
 
-  // Saved / quick places
+  // Quick categories and saved places
   const quickPois = savedLocations.length > 0 
-    ? savedLocations.slice(0, 4) 
-    : activeRegion.pois.filter(p => p.isSaved).slice(0, 4);
+    ? savedLocations.slice(0, 5) 
+    : activeRegion.pois.filter(p => p.isSaved).slice(0, 5);
 
   return (
-    <div className="w-full px-4 pb-2 z-40 select-none space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-300">
-      {/* 1. Main Search Bar: "Where to?" + Mic */}
-      <div className="p-3.5 rounded-3xl bg-[#111315]/95 backdrop-blur-xl border border-[#2B2F33] shadow-2xl space-y-3.5">
-        <div className="flex items-center gap-2.5">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 sm:p-4 z-20 select-none">
+      
+      {/* 1. Top Floating Search Bar & Category Chips */}
+      <div className="w-full space-y-2.5 pointer-events-auto">
+        {/* Search Bar */}
+        <div className="p-1.5 rounded-2xl bg-[#111315]/95 backdrop-blur-xl border border-[#2B2F33] shadow-2xl flex items-center gap-2">
           <div 
             onClick={onOpenSearch}
-            className="flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] border border-[#2B2F33] cursor-pointer transition-all group"
+            className="flex-1 flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] cursor-pointer transition-colors group"
           >
             <Search size={18} className="text-[#A4A9AE] group-hover:text-[#FFD400] transition-colors" />
-            <span className="text-sm font-semibold text-[#F5F7F8]">
-              Where to?
+            <span className="text-sm font-semibold text-[#A4A9AE] group-hover:text-[#F5F7F8] transition-colors">
+              Where are you going?
             </span>
           </div>
 
           <button
             onClick={onOpenVoice}
             title="Voice Navigation"
-            className="p-3 rounded-2xl bg-[#FFD400] hover:bg-[#e6bf00] text-black shadow-lg shadow-[rgba(255,212,0,0.2)] transition-all flex items-center justify-center flex-shrink-0"
+            className="p-2.5 rounded-xl bg-[#FFD400] hover:bg-[#e6bf00] text-black shadow-md transition-transform active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer"
           >
-            <Mic size={20} />
+            <Mic size={18} />
           </button>
         </div>
 
-        {/* 2. Saved Destinations Quick Access */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A4A9AE] font-display">
-              Saved Destinations
-            </span>
-            <button 
-              onClick={onOpenSavedLocations}
-              className="text-[11px] font-semibold text-[#FFD400] hover:underline flex items-center gap-0.5 font-display"
+        {/* Floating Quick Destination Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar font-display">
+          {quickPois.map((poi) => (
+            <button
+              key={poi.id}
+              onClick={() => onSelectDestination(poi)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#111315]/90 backdrop-blur-md hover:bg-[#191C1F] border border-[#2B2F33] hover:border-[#FFD400]/40 text-xs font-semibold text-[#F5F7F8] whitespace-nowrap shadow-md transition-all active:scale-95 cursor-pointer"
             >
-              <span>View All</span>
-              <ArrowRight size={12} />
+              {getCategoryIcon(poi.category)}
+              <span>{poi.name}</span>
             </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            {quickPois.map((poi) => (
-              <button
-                key={poi.id}
-                onClick={() => onSelectDestination(poi)}
-                className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] border border-[#2B2F33] hover:border-[#FFD400]/40 text-left transition-all group"
-              >
-                <div className="p-2 rounded-xl bg-[#22262A] group-hover:bg-[#FFD400]/20 flex-shrink-0 transition-colors">
-                  {getCategoryIcon(poi.category)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-xs font-bold text-[#F5F7F8] group-hover:text-[#FFD400] truncate block transition-colors">
-                    {poi.name}
-                  </span>
-                  <span className="text-[10px] text-[#A4A9AE] truncate block">
-                    {poi.address}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 3. Quick Actions: Download Region, Saved Locations, Offline Maps */}
-        <div className="grid grid-cols-3 gap-2 pt-1 font-display">
-          <button
-            onClick={onOpenDownloadRegion}
-            className="flex flex-col items-center justify-center p-2 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] border border-[#2B2F33] text-center transition-all group"
-          >
-            <DownloadCloud size={16} className="text-[#FFD400] mb-1" />
-            <span className="text-[10px] font-bold text-[#F5F7F8] group-hover:text-[#FFD400]">
-              Download Region
-            </span>
-          </button>
-
-          <button
-            onClick={onOpenSavedLocations}
-            className="flex flex-col items-center justify-center p-2 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] border border-[#2B2F33] text-center transition-all group"
-          >
-            <Bookmark size={16} className="text-[#22C55E] mb-1" />
-            <span className="text-[10px] font-bold text-[#F5F7F8] group-hover:text-[#22C55E]">
-              Saved Locations
-            </span>
-          </button>
-
-          <button
-            onClick={onOpenDownloadRegion}
-            className="flex flex-col items-center justify-center p-2 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] border border-[#2B2F33] text-center transition-all group"
-          >
-            <HardDrive size={16} className="text-[#3B82F6] mb-1" />
-            <span className="text-[10px] font-bold text-[#F5F7F8] group-hover:text-[#3B82F6]">
-              Offline Maps
-            </span>
-          </button>
-        </div>
-
-        {/* 4. System Status Section (Functional Status Cards) */}
-        <div className="space-y-1.5 pt-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#A4A9AE] font-display">
-            System Telemetry & Hardware Status
-          </span>
-
-          <div className="grid grid-cols-4 gap-1.5 text-center font-display">
-            {/* GPS Status Card */}
-            <div className="p-2 rounded-xl bg-[#191C1F] border border-[#2B2F33]">
-              <span className="text-[9px] uppercase font-bold text-[#A4A9AE] block">GPS</span>
-              <span className={`text-[11px] font-extrabold block mt-0.5 ${
-                posState.isSensorAssisted ? 'text-[#3B82F6]' : 'text-[#22C55E]'
-              }`}>
-                {posState.isSensorAssisted ? 'IMU SENSOR' : 'ACTIVE'}
-              </span>
-            </div>
-
-            {/* Internet Status Card */}
-            <div className="p-2 rounded-xl bg-[#191C1F] border border-[#2B2F33]">
-              <span className="text-[9px] uppercase font-bold text-[#A4A9AE] block">Internet</span>
-              <span className={`text-[11px] font-extrabold block mt-0.5 ${
-                isOffline ? 'text-[#F59E0B]' : 'text-[#22C55E]'
-              }`}>
-                {isOffline ? 'OFFLINE' : 'CONNECTED'}
-              </span>
-            </div>
-
-            {/* Battery Status Card */}
-            <div className="p-2 rounded-xl bg-[#191C1F] border border-[#2B2F33]">
-              <span className="text-[9px] uppercase font-bold text-[#A4A9AE] block">Battery</span>
-              <span className={`text-[11px] font-extrabold block mt-0.5 ${
-                batteryState.isLowBattery ? 'text-[#EF4444]' : 'text-[#22C55E]'
-              }`}>
-                {Math.round(batteryState.level * 100)}%
-              </span>
-            </div>
-
-            {/* Offline Maps Status Card */}
-            <div className="p-2 rounded-xl bg-[#191C1F] border border-[#2B2F33]">
-              <span className="text-[9px] uppercase font-bold text-[#A4A9AE] block">Offline Maps</span>
-              <span className="text-[11px] font-extrabold text-[#FFD400] block mt-0.5">
-                {activeRegion.isDownloaded ? 'READY' : 'AVAILABLE'}
-              </span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
+
+      {/* 2. Bottom Floating Status Pills & Engine Control */}
+      <div className="w-full flex items-center justify-between pointer-events-auto font-display">
+        {/* Quick Status Telemetry Badges */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#111315]/90 backdrop-blur-md border border-[#2B2F33] text-[11px] font-bold shadow-md">
+            <span className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-[#F59E0B]' : 'bg-[#22C55E]'}`} />
+            <span className={isOffline ? 'text-[#F59E0B]' : 'text-[#22C55E]'}>
+              {isOffline ? 'Offline Mode' : 'Online'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#111315]/90 backdrop-blur-md border border-[#2B2F33] text-[11px] font-bold shadow-md">
+            <Radio size={12} className={posState.isSensorAssisted ? 'text-[#3B82F6]' : 'text-[#22C55E]'} />
+            <span className={posState.isSensorAssisted ? 'text-[#3B82F6]' : 'text-[#F5F7F8]'}>
+              {posState.isSensorAssisted ? '6-DOF IMU' : 'GPS Active'}
+            </span>
+          </div>
+        </div>
+
+        {/* NavX Engine / USP Drawer Trigger */}
+        <button
+          onClick={onOpenEngineDrawer}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#191C1F]/90 backdrop-blur-md hover:bg-[#22262A] border border-[#2B2F33] hover:border-[#FFD400]/40 text-[#FFD400] text-xs font-bold shadow-lg transition-all active:scale-95 cursor-pointer"
+          title="Open NavX Technology & Simulation Panel"
+        >
+          <Sparkles size={13} />
+          <span>NavX Engine</span>
+        </button>
+      </div>
+
     </div>
   );
 };

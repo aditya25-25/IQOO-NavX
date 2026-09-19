@@ -7,6 +7,7 @@ import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
 import { SplashScreen } from './components/SplashScreen';
+import { LandingPage } from './components/LandingPage';
 import { OriginIsland } from './components/OriginIsland';
 import { MapView } from './components/MapView';
 import { TurnGuidanceHUD } from './components/TurnGuidanceHUD';
@@ -26,12 +27,16 @@ import {
   Smartphone, 
   Monitor, 
   Sparkles,
-  Zap
+  Zap,
+  Globe
 } from 'lucide-react';
 
 export const App: React.FC = () => {
+  // Main View State: 'landing' vs 'app'
+  const [viewMode, setViewMode] = useState<'landing' | 'app'>('landing');
+
   // App Launch Splash State
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
 
   // Region & Saved Places
   const [activeRegion, setActiveRegion] = useState<MapRegion>(REGIONS[0]);
@@ -115,6 +120,12 @@ export const App: React.FC = () => {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Launch App from Landing Page
+  const handleLaunchApp = () => {
+    setShowSplash(true);
+    setViewMode('app');
   };
 
   // Calculate Route Handler
@@ -272,6 +283,11 @@ export const App: React.FC = () => {
   const isPreviewing = navProgress.status === 'previewing' && navProgress.activeRoute !== null;
   const isIdle = navProgress.status === 'idle';
 
+  // Render Landing Page if in 'landing' mode
+  if (viewMode === 'landing') {
+    return <LandingPage onLaunchApp={handleLaunchApp} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#08090A] text-[#F5F7F8] flex flex-col items-center justify-start relative overflow-x-hidden font-sans">
       {/* 1. App Launch Splash Screen */}
@@ -279,7 +295,7 @@ export const App: React.FC = () => {
         <SplashScreen onComplete={() => setShowSplash(false)} />
       )}
 
-      {/* Top Header & Mobile/Desktop Frame Switcher */}
+      {/* Top Navigation Bar: Seamless Switcher */}
       <header className="w-full max-w-6xl px-4 py-2 flex items-center justify-between border-b border-[#2B2F33] z-30 select-none">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-xl bg-[#FFD400] flex items-center justify-center font-black text-black text-xs font-display shadow-[0_0_12px_rgba(255,212,0,0.35)]">
@@ -299,13 +315,22 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Frame View Toggle */}
+          {/* Back to Landing Page / Product Overview */}
+          <button
+            onClick={() => setViewMode('landing')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-xs font-bold text-[#A4A9AE] hover:text-[#FFD400] border border-[#2B2F33] transition-colors font-display cursor-pointer"
+          >
+            <Globe size={14} />
+            <span>Product Page</span>
+          </button>
+
+          {/* Phone Frame vs Full-Width Viewport Toggle */}
           <button
             onClick={() => setIsPhoneFrameView(!isPhoneFrameView)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-xs font-semibold text-[#A4A9AE] hover:text-[#F5F7F8] border border-[#2B2F33] transition-colors font-display"
           >
             {isPhoneFrameView ? <Monitor size={14} /> : <Smartphone size={14} />}
-            <span>{isPhoneFrameView ? 'Full Width' : 'Phone Frame'}</span>
+            <span className="hidden sm:inline">{isPhoneFrameView ? 'Full Width' : 'Phone Frame'}</span>
           </button>
         </div>
       </header>
@@ -419,7 +444,7 @@ export const App: React.FC = () => {
             isNavigating={isNavigating}
           />
 
-          {/* 8. Demo Simulation Controls for Judges */}
+          {/* 8. Demo Simulation Controls for Judges (Collapsible Drawer) */}
           <div className="w-full bg-[#08090A] border-t border-[#2B2F33] pt-1">
             <DemoSimulationBar
               isOffline={isOfflineForced}

@@ -544,13 +544,19 @@ export const App: React.FC = () => {
       // STEP 9 — DEAD RECKONING
       // -----------------------------------------------------
 
-      case 9:
-        showToast(
-          'Step 9: Dead reckoning maintains position'
-        );
+     // STEP 9 — DEAD RECKONING
+case 9:
+  positionManager.stepDeadReckoning(
+    Math.max(posState.speed, 8),
+    posState.heading,
+    1.0
+  );
 
-        break;
+  showToast(
+    'Step 9: Dead reckoning maintains position'
+  );
 
+  break;
       // -----------------------------------------------------
       // STEP 10 — GPS RESTORED
       // -----------------------------------------------------

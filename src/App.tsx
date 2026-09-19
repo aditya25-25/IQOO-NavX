@@ -8,6 +8,7 @@ import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
 import { SplashScreen } from './components/SplashScreen';
 import { LandingPage } from './components/LandingPage';
+import { NavigationHeader } from './components/NavigationHeader';
 import { OriginIsland } from './components/OriginIsland';
 import { MapView } from './components/MapView';
 import { TurnGuidanceHUD } from './components/TurnGuidanceHUD';
@@ -24,11 +25,8 @@ import { VoiceAIPanel } from './components/VoiceAIPanel';
 import { DemoSimulationBar } from './components/DemoSimulationBar';
 import { BottomNavBar, TabType } from './components/BottomNavBar';
 import { 
-  Smartphone, 
-  Monitor, 
   Sparkles,
-  Zap,
-  Globe
+  Zap
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -295,45 +293,17 @@ export const App: React.FC = () => {
         <SplashScreen onComplete={() => setShowSplash(false)} />
       )}
 
-      {/* Top Navigation Bar: Seamless Switcher */}
-      <header className="w-full max-w-6xl px-4 py-2 flex items-center justify-between border-b border-[#2B2F33] z-30 select-none">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-xl bg-[#FFD400] flex items-center justify-center font-black text-black text-xs font-display shadow-[0_0_12px_rgba(255,212,0,0.35)]">
-            iQ
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-sm tracking-wider text-[#F5F7F8] font-display">
-                IQOO NavX
-              </span>
-              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-[#FFD400]/15 text-[#FFD400] border border-[#FFD400]/30 font-display">
-                OFFLINE ENGINE
-              </span>
-            </div>
-            <p className="text-[10px] text-[#A4A9AE] font-display">Navigate. Even When It's Not Perfect.</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Back to Landing Page / Product Overview */}
-          <button
-            onClick={() => setViewMode('landing')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-xs font-bold text-[#A4A9AE] hover:text-[#FFD400] border border-[#2B2F33] transition-colors font-display cursor-pointer"
-          >
-            <Globe size={14} />
-            <span>Product Page</span>
-          </button>
-
-          {/* Phone Frame vs Full-Width Viewport Toggle */}
-          <button
-            onClick={() => setIsPhoneFrameView(!isPhoneFrameView)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#191C1F] hover:bg-[#22262A] text-xs font-semibold text-[#A4A9AE] hover:text-[#F5F7F8] border border-[#2B2F33] transition-colors font-display"
-          >
-            {isPhoneFrameView ? <Monitor size={14} /> : <Smartphone size={14} />}
-            <span className="hidden sm:inline">{isPhoneFrameView ? 'Full Width' : 'Phone Frame'}</span>
-          </button>
-        </div>
-      </header>
+      {/* Reusable Application Header Shell (Section 5) */}
+      <NavigationHeader
+        isNavigating={isNavigating}
+        isOffline={isOfflineForced}
+        posState={posState}
+        batteryState={batteryState}
+        onBackOrStopNav={() => navCtrl.stopNavigation()}
+        onToggleViewMode={() => setViewMode('landing')}
+        isPhoneFrameView={isPhoneFrameView}
+        onTogglePhoneFrame={() => setIsPhoneFrameView(!isPhoneFrameView)}
+      />
 
       {/* Main Content Container: Mobile Viewport */}
       <main className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${

@@ -11,6 +11,7 @@ import { LandingPage } from './components/LandingPage';
 import { NavigationHeader } from './components/NavigationHeader';
 import { OriginIsland } from './components/OriginIsland';
 import { MapView } from './components/MapView';
+import { MapExperience } from './components/MapExperience';
 import { TurnGuidanceHUD } from './components/TurnGuidanceHUD';
 import { RouteContextCard } from './components/RouteContextCard';
 import { RoutePreviewCard } from './components/RoutePreviewCard';
@@ -339,49 +340,33 @@ export const App: React.FC = () => {
             onOpenVoice={() => setIsVoiceModalOpen(true)}
           />
 
-          {/* 3. Interactive Map View (Dominating Viewport) */}
-          <div className="flex-1 w-full relative min-h-[420px]">
-            <MapView
-              currentPosition={posState.currentPosition}
-              positionState={posState}
-              activeRoute={navProgress.activeRoute}
-              activeRegion={activeRegion}
-              savedLocations={savedLocations}
-              isUltraMode={batteryState.isUltraMode}
-              onSelectPOI={(poi) => {
-                setDetailedPoi(poi);
-                setIsDestinationDetailsOpen(true);
-              }}
-            />
-
-            {/* 4. Home Screen Overlay (When Idle: floating search & quick chips) */}
-            {isIdle && (
-              <HomeScreenOverlay
-                activeRegion={activeRegion}
-                savedLocations={savedLocations}
-                posState={posState}
-                batteryState={batteryState}
-                isOffline={isOfflineForced}
-                onOpenSearch={() => setIsSearchScreenOpen(true)}
-                onOpenVoice={() => setIsVoiceModalOpen(true)}
-                onOpenSavedLocations={() => setIsSavedLocationsOpen(true)}
-                onOpenDownloadRegion={() => setIsDownloadRegionOpen(true)}
-                onSelectDestination={(poi) => {
-                  setDetailedPoi(poi);
-                  setIsDestinationDetailsOpen(true);
-                }}
-                onOpenEngineDrawer={() => setIsEngineDrawerOpen(true)}
-              />
-            )}
-
-            {/* Float Route Context Card if Navigating */}
-            {isNavigating && navProgress.activeRoute && (
-              <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
-                <RouteContextCard context={navProgress.activeRoute.context} />
-              </div>
-            )}
-          </div>
-
+         {/* 3. Map Experience */}
+<MapExperience
+  currentPosition={posState.currentPosition}
+  positionState={posState}
+  activeRoute={navProgress.activeRoute}
+  activeRegion={activeRegion}
+  savedLocations={savedLocations}
+  isUltraMode={batteryState.isUltraMode}
+  isIdle={isIdle}
+  isNavigating={isNavigating}
+  posState={posState}
+  batteryState={batteryState}
+  isOffline={isOfflineForced}
+  onSelectPOI={(poi) => {
+    setDetailedPoi(poi);
+    setIsDestinationDetailsOpen(true);
+  }}
+  onOpenSearch={() => setIsSearchScreenOpen(true)}
+  onOpenVoice={() => setIsVoiceModalOpen(true)}
+  onOpenSavedLocations={() => setIsSavedLocationsOpen(true)}
+  onOpenDownloadRegion={() => setIsDownloadRegionOpen(true)}
+  onSelectDestination={(poi) => {
+    setDetailedPoi(poi);
+    setIsDestinationDetailsOpen(true);
+  }}
+  onOpenEngineDrawer={() => setIsEngineDrawerOpen(true)}
+/>
           {/* 5. Route Preview Screen (When Previewing Route) */}
           {isPreviewing && navProgress.activeRoute && (
             <RoutePreviewCard

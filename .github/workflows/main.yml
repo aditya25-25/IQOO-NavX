@@ -12,6 +12,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
 
+        env:
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-test-key
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

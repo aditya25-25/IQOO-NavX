@@ -293,3 +293,338 @@ h1, h2, h3, h4, h5, h6, .font-display {
   border-radius: 9999px;
   animation: voiceWave 1s infinite ease-in-out;
 }
+
+/* =========================================================
+   NavX UI/UX FINAL POLISH
+   ========================================================= */
+
+/* Smooth interaction system */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+[role="button"] {
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    opacity 150ms ease;
+}
+
+/* Better press feedback */
+button:active,
+[role="button"]:active {
+  transform: scale(0.97);
+}
+
+/* Disabled state */
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* =========================================================
+   SEARCH / DESTINATION INPUT POLISH
+   ========================================================= */
+
+input,
+textarea,
+select {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* =========================================================
+   PREMIUM CARD INTERACTIONS
+   ========================================================= */
+
+.surface-card,
+.surface-panel,
+.surface-elevated {
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.surface-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.surface-panel:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   NAVX BRAND ACCENT
+   ========================================================= */
+
+.navx-accent {
+  color: var(--accent-iqoo);
+}
+
+.navx-accent-text {
+  color: var(--accent-iqoo);
+  font-weight: 700;
+}
+
+.navx-brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+/* =========================================================
+   STATUS INDICATORS
+   ========================================================= */
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  min-width: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot-gps {
+  background: var(--color-gps);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.45);
+}
+
+.status-dot-success {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+
+.status-dot-warning {
+  background: var(--color-warning);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.status-dot-error {
+  background: var(--color-error);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+/* =========================================================
+   LOADING / SKELETON
+   ========================================================= */
+
+.navx-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-surface-secondary);
+  border-radius: var(--radius-card);
+}
+
+.navx-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.045),
+    transparent
+  );
+  animation: navxSkeleton 1.5s infinite;
+}
+
+@keyframes navxSkeleton {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* =========================================================
+   PAGE / PANEL ENTRY
+   ========================================================= */
+
+.navx-enter {
+  animation: navxEnter 220ms ease-out both;
+}
+
+@keyframes navxEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================================
+   BOTTOM NAVIGATION
+   ========================================================= */
+
+.navx-bottom-nav {
+  background: rgba(17, 19, 21, 0.96);
+  border-top: 1px solid var(--border-color);
+  padding-bottom: env(safe-area-inset-bottom);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.navx-bottom-item {
+  color: var(--text-muted);
+  transition:
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.navx-bottom-item:hover {
+  color: var(--text-secondary);
+}
+
+.navx-bottom-item.active {
+  color: var(--accent-iqoo);
+}
+
+.navx-bottom-item:active {
+  transform: scale(0.94);
+}
+
+/* =========================================================
+   MAP OVERLAY SURFACES
+   ========================================================= */
+
+.map-overlay-card {
+  background: rgba(17, 19, 21, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hud);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* =========================================================
+   ROUTE / GUIDANCE EMPHASIS
+   ========================================================= */
+
+.route-primary {
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.route-secondary {
+  color: var(--text-secondary);
+}
+
+.route-distance {
+  color: var(--accent-iqoo);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+/* =========================================================
+   MICRO INTERACTION FOR ICONS
+   ========================================================= */
+
+.icon-interactive {
+  transition:
+    transform 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.icon-interactive:hover {
+  transform: scale(1.06);
+}
+
+.icon-interactive:active {
+  transform: scale(0.92);
+}
+
+/* =========================================================
+   MOBILE SAFE AREA
+   ========================================================= */
+
+.navx-safe-bottom {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.navx-safe-top {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+/* =========================================================
+   REDUCED MOTION ACCESSIBILITY
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================================================
+   SMALL SCREEN REFINEMENTS
+   ========================================================= */
+
+@media (max-width: 480px) {
+  :root {
+    --radius-card: 13px;
+    --radius-panel: 16px;
+    --radius-search: 15px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    min-height: 46px;
+  }
+
+  .btn-icon {
+    min-width: 46px;
+    min-height: 46px;
+  }
+}
+
+/* =========================================================
+   ULTRA NAVIGATION MODE
+   ========================================================= */
+
+body.ultra-mode .map-overlay-card {
+  background: rgba(0, 0, 0, 0.96);
+  border-color: #1A1A1A;
+  box-shadow: none;
+}
+
+body.ultra-mode .navx-bottom-nav {
+  background: #000000;
+  border-color: #1A1A1A;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

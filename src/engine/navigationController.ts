@@ -1,3 +1,4 @@
+```ts
 import {
   Coordinates,
   MapRegion,
@@ -95,7 +96,9 @@ export class NavigationController {
   public getProgress(): NavigationProgress {
     const currentInstruction =
       this.activeRoute &&
-      this.activeRoute.instructions[this.currentStepIndex]
+      this.activeRoute.instructions[
+        this.currentStepIndex
+      ]
         ? this.activeRoute.instructions[
             this.currentStepIndex
           ]
@@ -108,7 +111,8 @@ export class NavigationController {
       100,
       Math.max(
         0,
-        ((totalDist - this.remainingDistanceMeters) /
+        ((totalDist -
+          this.remainingDistanceMeters) /
           totalDist) *
           100
       )
@@ -117,7 +121,8 @@ export class NavigationController {
     return {
       status: this.status,
       activeRoute: this.activeRoute,
-      currentStepIndex: this.currentStepIndex,
+      currentStepIndex:
+        this.currentStepIndex,
       currentInstruction,
       distanceToNextTurnMeters: Math.round(
         this.distanceToNextTurnMeters
@@ -128,8 +133,11 @@ export class NavigationController {
       remainingDurationSeconds: Math.round(
         this.remainingDurationSeconds
       ),
-      progressPercent: Math.round(progressPercent),
-      isOffRouteDetected: this.isOffRouteDetected,
+      progressPercent: Math.round(
+        progressPercent
+      ),
+      isOffRouteDetected:
+        this.isOffRouteDetected,
       rerouteCount: this.rerouteCount,
     };
   }
@@ -193,7 +201,8 @@ export class NavigationController {
 
     voiceEngine.speak(
       `Starting navigation to ${this.activeRoute.destinationName}. ${
-        firstTurn?.instruction || 'Proceed on route'
+        firstTurn?.instruction ||
+        'Proceed on route'
       }.`,
       true
     );
@@ -243,7 +252,9 @@ export class NavigationController {
     }
   }
 
-  public setSimSpeed(speedMultiplier: number) {
+  public setSimSpeed(
+    speedMultiplier: number
+  ) {
     this.simSpeedMultiplier = Math.max(
       0.1,
       speedMultiplier
@@ -299,7 +310,9 @@ export class NavigationController {
         coords[this.currentCoordIndex];
 
       const prevCoord =
-        coords[this.currentCoordIndex - 1];
+        coords[
+          this.currentCoordIndex - 1
+        ];
 
       const bearing = getBearing(
         prevCoord,
@@ -338,14 +351,22 @@ export class NavigationController {
 
   private stopSimulation() {
     if (this.simIntervalId !== null) {
-      clearInterval(this.simIntervalId);
+      clearInterval(
+        this.simIntervalId
+      );
+
       this.simIntervalId = null;
     }
   }
 
   private cancelPendingReroute() {
-    if (this.rerouteTimeoutId !== null) {
-      clearTimeout(this.rerouteTimeoutId);
+    if (
+      this.rerouteTimeoutId !== null
+    ) {
+      clearTimeout(
+        this.rerouteTimeoutId
+      );
+
       this.rerouteTimeoutId = null;
     }
   }
@@ -379,7 +400,8 @@ export class NavigationController {
 
     for (
       let s = this.currentStepIndex;
-      s < this.activeRoute.instructions.length;
+      s <
+      this.activeRoute.instructions.length;
       s++
     ) {
       const step =
@@ -396,7 +418,8 @@ export class NavigationController {
         s <
           this.activeRoute.instructions.length - 1
       ) {
-        this.currentStepIndex = s + 1;
+        this.currentStepIndex =
+          s + 1;
 
         const nextStep =
           this.activeRoute.instructions[
@@ -435,9 +458,17 @@ export class NavigationController {
       return;
     }
 
+    const currentPosition =
+      this.positionManager.getState()
+        .currentPosition;
+
+    // Move slightly away from the current route
+    // to simulate a missed turn.
     const missedCoord: Coordinates = {
-      lat: 12.9380,
-      lng: 77.7250,
+      lat:
+        currentPosition.lat + 0.0012,
+      lng:
+        currentPosition.lng + 0.0012,
     };
 
     this.positionManager.updateGpsPosition(
@@ -486,66 +517,69 @@ export class NavigationController {
       true
     );
 
-    this.rerouteTimeoutId = setTimeout(() => {
-      this.rerouteTimeoutId = null;
+    this.rerouteTimeoutId =
+      setTimeout(() => {
+        this.rerouteTimeoutId = null;
 
-      // Navigation may have been stopped,
-      // paused, or replaced while rerouting.
-      if (
-        !this.activeRoute ||
-        this.status !== 'rerouting'
-      ) {
-        return;
-      }
+        // Navigation may have been stopped,
+        // paused, or replaced while rerouting.
+        if (
+          !this.activeRoute ||
+          this.status !== 'rerouting'
+        ) {
+          return;
+        }
 
-      const newRoute =
-        calculateOfflineRoute(
-          fromCoord,
-          'Current Position (Off-Route Detour)',
-          destination,
-          destinationName,
-          this.activeRegion
-        );
+        const newRoute =
+          calculateOfflineRoute(
+            fromCoord,
+            'Current Position (Off-Route Detour)',
+            destination,
+            destinationName,
+            this.activeRegion
+          );
 
-      if (newRoute) {
-        this.activeRoute = newRoute;
-        this.status = 'navigating';
-        this.currentStepIndex = 0;
-        this.currentCoordIndex = 0;
+        if (newRoute) {
+          this.activeRoute = newRoute;
+          this.status = 'navigating';
+          this.currentStepIndex = 0;
+          this.currentCoordIndex = 0;
 
-        this.remainingDistanceMeters =
-          newRoute.totalDistanceMeters;
+          this.remainingDistanceMeters =
+            newRoute.totalDistanceMeters;
 
-        this.remainingDurationSeconds =
-          newRoute.totalDurationSeconds;
+          this.remainingDurationSeconds =
+            newRoute.totalDurationSeconds;
 
-        this.distanceToNextTurnMeters =
-          newRoute.instructions[0]
-            ?.distanceMeters || 0;
-
-        this.isOffRouteDetected = false;
-
-        voiceEngine.speak(
-          `Route recalculated. In ${
+          this.distanceToNextTurnMeters =
             newRoute.instructions[0]
-              ?.distanceMeters || 100
-          } meters, ${
-            newRoute.instructions[0]
-              ?.instruction || 'continue'
-          }.`,
-          true
-        );
+              ?.distanceMeters || 0;
 
-        this.startSimulationLoop();
-        this.notify();
-      } else {
-        // Reroute failed, but keep navigation alive.
-        this.status = 'navigating';
-        this.isOffRouteDetected = false;
+          this.isOffRouteDetected = false;
 
-        this.startSimulationLoop();
-        this.notify();
-      }
-    }, 750);
+          voiceEngine.speak(
+            `Route recalculated. In ${
+              newRoute.instructions[0]
+                ?.distanceMeters || 100
+            } meters, ${
+              newRoute.instructions[0]
+                ?.instruction ||
+              'continue'
+            }.`,
+            true
+          );
+
+          this.startSimulationLoop();
+          this.notify();
+        } else {
+          // Reroute failed, but keep navigation alive.
+          this.status = 'navigating';
+          this.isOffRouteDetected = false;
+
+          this.startSimulationLoop();
+          this.notify();
+        }
+      }, 750);
   }
 }
+```

@@ -1,4 +1,3 @@
-```ts
 import {
   Coordinates,
   GPSQuality,

@@ -1,4 +1,3 @@
-```ts
 import {
   Coordinates,
   MapRegion,
@@ -582,4 +581,3 @@ export class NavigationController {
       }, 750);
   }
 }
-```

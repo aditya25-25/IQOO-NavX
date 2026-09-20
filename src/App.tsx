@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useMemo,
   useRef,
+  useCallback,
 } from 'react';
 
 import { REGIONS } from './data/regions';
@@ -26,6 +27,12 @@ import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
 
+import { authService } from './services/supabase/authService';
+import { savedPlacesService } from './services/supabase/savedPlacesService';
+import { preferencesService } from './services/supabase/preferencesService';
+import { recentRoutesService } from './services/supabase/recentRoutesService';
+import { User } from '@supabase/supabase-js';
+
 import { SplashScreen } from './components/SplashScreen';
 import { LandingPage } from './components/LandingPage';
 import { NavigationHeader } from './components/NavigationHeader';
@@ -47,6 +54,7 @@ import {
   BottomNavBar,
   TabType,
 } from './components/BottomNavBar';
+import { AuthModal } from './components/AuthModal';
 
 import { Sparkles, Zap } from 'lucide-react';
 
@@ -60,6 +68,22 @@ export const App: React.FC = () => {
 
   const [showSplash, setShowSplash] =
     useState(false);
+
+  // =========================================================
+  // SUPABASE AUTHENTICATION & CLOUD STATE
+  // =========================================================
+
+  const [currentUser, setCurrentUser] =
+    useState<User | null>(null);
+
+  const [isAuthModalOpen, setIsAuthModalOpen] =
+    useState(false);
+
+  const [isSavedPlacesLoading, setIsSavedPlacesLoading] =
+    useState(false);
+
+  const [savedPlacesError, setSavedPlacesError] =
+    useState<string | null>(null);
 
   // =========================================================
   // REGION & SAVED LOCATIONS
@@ -165,7 +189,7 @@ export const App: React.FC = () => {
     );
 
   // =========================================================
-  // BATTERY
+  // BATTERY & AUDIO
   // =========================================================
 
   const [batteryState, setBatteryState] =
@@ -177,7 +201,7 @@ export const App: React.FC = () => {
     useState<boolean>(false);
 
   // =========================================================
-  // UI / MODAL STATE
+  // MODALS & OVERLAYS
   // =========================================================
 
   const [isSearchScreenOpen, setIsSearchScreenOpen] =
@@ -207,14 +231,137 @@ export const App: React.FC = () => {
   const [toastMessage, setToastMessage] =
     useState<string | null>(null);
 
-  // Prevent overlapping toast timers.
   const toastTimeoutRef =
-    useRef<ReturnType<typeof setTimeout> | null>(
-      null
-    );
+    useRef<number | null>(null);
 
   // =========================================================
-  // REACTIVE ENGINE SUBSCRIPTIONS
+  // TOAST HELPER
+  // =========================================================
+
+  const showToast = useCallback(
+    (message: string) => {
+      if (
+        toastTimeoutRef.current !== null
+      ) {
+        clearTimeout(
+          toastTimeoutRef.current
+        );
+
+        toastTimeoutRef.current = null;
+      }
+
+      setToastMessage(message);
+
+      toastTimeoutRef.current =
+        window.setTimeout(() => {
+          setToastMessage(null);
+          toastTimeoutRef.current = null;
+        }, 3500);
+    },
+    []
+  );
+
+  // =========================================================
+  // SUPABASE CLOUD SYNC HELPERS
+  // =========================================================
+
+  const loadCloudSavedPlaces = useCallback(
+    async (user: User | null) => {
+      if (!user) {
+        setSavedLocations(
+          activeRegion.pois.filter(
+            (p) => p.isSaved
+          )
+        );
+        return;
+      }
+
+      setIsSavedPlacesLoading(true);
+      setSavedPlacesError(null);
+
+      const { data, error } =
+        await savedPlacesService.fetchSavedPlaces();
+
+      setIsSavedPlacesLoading(false);
+
+      if (error) {
+        setSavedPlacesError(error);
+        showToast(`Cloud Sync: ${error}`);
+      } else if (data) {
+        if (data.length > 0) {
+          const cloudPois: POI[] = data.map((row) => ({
+            id: row.id,
+            name: row.name,
+            category: 'work',
+            coordinate: {
+              lat: Number(row.latitude),
+              lng: Number(row.longitude),
+            },
+            address: 'Supabase Cloud Saved Place',
+            regionId: activeRegion.id,
+            isSaved: true,
+          }));
+
+          setSavedLocations(cloudPois);
+          showToast(`Synced ${cloudPois.length} saved place(s) from Supabase`);
+        } else {
+          setSavedLocations(
+            activeRegion.pois.filter(
+              (p) => p.isSaved
+            )
+          );
+        }
+      }
+    },
+    [activeRegion, showToast]
+  );
+
+  const loadCloudPreferences = useCallback(
+    async (user: User | null) => {
+      if (!user) return;
+      const { data } =
+        await preferencesService.fetchPreferences();
+
+      if (data && data.voice_enabled !== undefined) {
+        const muted = !data.voice_enabled;
+        setIsVoiceMuted(muted);
+        voiceEngine.setMuted(muted);
+      }
+    },
+    []
+  );
+
+  // =========================================================
+  // SUPABASE AUTH INITIALIZATION & SUBSCRIPTION
+  // =========================================================
+
+  useEffect(() => {
+    authService.getCurrentUser().then((user) => {
+      setCurrentUser(user);
+      if (user) {
+        loadCloudSavedPlaces(user);
+        loadCloudPreferences(user);
+      }
+    });
+
+    const { data: authListener } = authService.onAuthStateChange(
+      (_event, session) => {
+        const user = session?.user ?? null;
+        setCurrentUser(user);
+        if (user) {
+          loadCloudSavedPlaces(user);
+          loadCloudPreferences(user);
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [loadCloudSavedPlaces, loadCloudPreferences]);
+
+  // =========================================================
+  // SUBSCRIPTIONS
   // =========================================================
 
   useEffect(() => {
@@ -247,26 +394,14 @@ export const App: React.FC = () => {
       unsubPos();
       unsubNav();
       unsubBat();
-
-      document.body.classList.remove(
-        'ultra-mode'
-      );
     };
   }, [positionManager, navCtrl]);
-
-  // =========================================================
-  // POSITION MANAGER CLEANUP
-  // =========================================================
 
   useEffect(() => {
     return () => {
       positionManager.destroy();
     };
   }, [positionManager]);
-
-  // =========================================================
-  // TOAST CLEANUP
-  // =========================================================
 
   useEffect(() => {
     return () => {
@@ -283,83 +418,37 @@ export const App: React.FC = () => {
   }, []);
 
   // =========================================================
-  // REGION SYNCHRONIZATION
+  // REGION SYNC
   // =========================================================
 
   useEffect(() => {
-    // Keep navigation controller synchronized.
     navCtrl.setRegion(activeRegion);
 
-    // Update saved locations.
-    setSavedLocations(
-      activeRegion.pois.filter(
-        (p) => p.isSaved
-      )
-    );
+    if (!currentUser) {
+      setSavedLocations(
+        activeRegion.pois.filter(
+          (p) => p.isSaved
+        )
+      );
+    }
 
     const newHome =
       activeRegion.pois.find(
         (p) => p.category === 'home'
       ) || activeRegion.pois[0];
 
-    const newDestination =
+    const newDest =
       activeRegion.pois.find(
         (p) => p.category === 'college'
       ) || activeRegion.pois[1];
 
-    // Update origin React state.
-    setOriginCoord(
-      newHome.coordinate
-    );
-
-    setOriginName(
-      newHome.name
-    );
-
-    // IMPORTANT:
-    // Reset the actual position-fusion engine too.
-    // This prevents coordinates from the previous
-    // region from carrying into the new region.
-    positionManager.resetPosition(
-      newHome.coordinate
-    );
-
-    setSelectedDestination(
-      newDestination
-    );
-  }, [
-    activeRegion,
-    navCtrl,
-    positionManager,
-  ]);
+    setOriginCoord(newHome.coordinate);
+    setOriginName(newHome.name);
+    setSelectedDestination(newDest);
+  }, [activeRegion, navCtrl, currentUser]);
 
   // =========================================================
-  // TOAST
-  // =========================================================
-
-  const showToast = (
-    message: string
-  ) => {
-    setToastMessage(message);
-
-    // Cancel previous toast timer.
-    if (
-      toastTimeoutRef.current !== null
-    ) {
-      clearTimeout(
-        toastTimeoutRef.current
-      );
-    }
-
-    toastTimeoutRef.current =
-      setTimeout(() => {
-        setToastMessage(null);
-        toastTimeoutRef.current = null;
-      }, 3500);
-  };
-
-  // =========================================================
-  // LAUNCH APP
+  // HANDLERS
   // =========================================================
 
   const handleLaunchApp = () => {
@@ -367,151 +456,135 @@ export const App: React.FC = () => {
     setViewMode('app');
   };
 
-  // =========================================================
-  // CALCULATE ROUTE
-  // =========================================================
+  const handleCalculateRoute =
+    async (destination: POI) => {
+      setSelectedDestination(destination);
 
-  const handleCalculateRoute = async (
-    destination: POI
-  ) => {
-    setSelectedDestination(
-      destination
-    );
-
-    const result =
-      await routeManager.calculateRoute(
-        originCoord,
-        originName,
-        destination.coordinate,
-        destination.name,
-        activeRegion
-      );
-
-    if (result) {
-      navCtrl.startPreview(
-        result.route
-      );
-
-      showToast(
-        result.source === 'offline'
-          ? `Calculated offline graph route: ${(
-              result.route
-                .totalDistanceMeters / 1000
-            ).toFixed(1)} km`
-          : `Calculated online route: ${(
-              result.route
-                .totalDistanceMeters / 1000
-            ).toFixed(1)} km`
-      );
-
-      return result.route;
-    }
-
-    showToast(
-      'Could not calculate route for this destination.'
-    );
-
-    return null;
-  };
-
-  // =========================================================
-  // START NAVIGATION
-  // =========================================================
-
-  const handleStartNavigation = async () => {
-    if (
-      !navProgress.activeRoute &&
-      selectedDestination
-    ) {
       const result =
         await routeManager.calculateRoute(
           originCoord,
           originName,
-          selectedDestination.coordinate,
-          selectedDestination.name,
+          destination.coordinate,
+          destination.name,
           activeRegion
         );
 
       if (result) {
-        navCtrl.startNavigation(
-          result.route
-        );
-      }
+        navCtrl.startPreview(result.route);
 
-      return;
-    }
-
-    if (navProgress.activeRoute) {
-      navCtrl.startNavigation();
-    }
-  };
-
-  // =========================================================
-  // AI COMMAND EXECUTION
-  // =========================================================
-
-  const handleExecuteAICommand = async (
-    result: AICommandResult
-  ) => {
-    setIsVoiceModalOpen(false);
-
-    if (
-      result.intent === 'STOP_NAV'
-    ) {
-      navCtrl.stopNavigation();
-
-      showToast(
-        'Navigation stopped via voice command'
-      );
-
-      return;
-    }
-
-    if (
-      result.intent === 'REROUTE'
-    ) {
-      navCtrl.simulateMissedTurn();
-
-      showToast(
-        'Offline reroute triggered via voice command'
-      );
-
-      return;
-    }
-
-    if (
-      result.intent === 'NAVIGATE' ||
-      result.intent === 'GO_HOME' ||
-      result.intent === 'GO_SAVED'
-    ) {
-      const destination =
-        result.matchedPOI ||
-        selectedDestination;
-
-      if (!destination) {
         showToast(
-          'No destination selected for navigation'
+          result.source === 'offline'
+            ? `Calculated offline graph route: ${(
+                result.route
+                  .totalDistanceMeters /
+                1000
+              ).toFixed(1)} km`
+            : `Calculated online route: ${(
+                result.route
+                  .totalDistanceMeters /
+                1000
+              ).toFixed(1)} km`
         );
 
-        return;
+        if (currentUser) {
+          recentRoutesService.recordRecentRoute(
+            destination.name,
+            result.route.totalDistanceMeters,
+            result.route.totalDurationSeconds
+          );
+        }
+      } else {
+        showToast(
+          'Could not calculate route for this destination.'
+        );
       }
+    };
 
-      const route =
-        await handleCalculateRoute(
-          destination
-        );
+  const handleStartNavigation =
+    async () => {
+      if (
+        !navProgress.activeRoute &&
+        selectedDestination
+      ) {
+        const result =
+          await routeManager.calculateRoute(
+            originCoord,
+            originName,
+            selectedDestination.coordinate,
+            selectedDestination.name,
+            activeRegion
+          );
 
-      if (route) {
-        navCtrl.startNavigation(
-          route
-        );
+        if (result) {
+          navCtrl.startNavigation(
+            result.route
+          );
+
+          if (currentUser) {
+            recentRoutesService.recordRecentRoute(
+              selectedDestination.name,
+              result.route.totalDistanceMeters,
+              result.route.totalDurationSeconds
+            );
+          }
+        }
+      } else if (
+        navProgress.activeRoute
+      ) {
+        navCtrl.startNavigation();
+
+        if (currentUser && selectedDestination) {
+          recentRoutesService.recordRecentRoute(
+            selectedDestination.name,
+            navProgress.activeRoute.totalDistanceMeters,
+            navProgress.activeRoute.totalDurationSeconds
+          );
+        }
       }
-    }
-  };
+    };
 
-  // =========================================================
-  // BOTTOM TAB NAVIGATION
-  // =========================================================
+  const handleExecuteAICommand =
+    (result: AICommandResult) => {
+      setIsVoiceModalOpen(false);
+
+      if (result.intent === 'STOP_NAV') {
+        navCtrl.stopNavigation();
+        showToast(
+          'Navigation stopped via voice command'
+        );
+      } else if (
+        result.intent === 'REROUTE'
+      ) {
+        navCtrl.simulateMissedTurn();
+        showToast(
+          'Offline reroute triggered via voice command'
+        );
+      } else if (
+        result.intent === 'NAVIGATE' ||
+        result.intent === 'GO_HOME' ||
+        result.intent === 'GO_SAVED'
+      ) {
+        if (result.matchedPOI) {
+          handleCalculateRoute(
+            result.matchedPOI
+          );
+
+          window.setTimeout(() => {
+            navCtrl.startNavigation();
+          }, 600);
+        } else if (
+          selectedDestination
+        ) {
+          handleCalculateRoute(
+            selectedDestination
+          );
+
+          window.setTimeout(() => {
+            navCtrl.startNavigation();
+          }, 600);
+        }
+      }
+    };
 
   const handleSelectTab = (
     tab: TabType
@@ -520,302 +593,189 @@ export const App: React.FC = () => {
 
     if (tab === 'saved') {
       setIsSavedLocationsOpen(true);
-    }
-
-    if (tab === 'regions') {
+    } else if (tab === 'regions') {
       setIsDownloadRegionOpen(true);
-    }
-
-    if (tab === 'settings') {
+    } else if (tab === 'settings') {
       setIsSettingsScreenOpen(true);
     }
   };
 
-  // =========================================================
-  // SAVE / UNSAVE POI
-  // =========================================================
+  const handleAddSavedLocation = async (newPoi: POI) => {
+    setSavedLocations((prev) => [newPoi, ...prev]);
 
-  const handleToggleSavePOI = (
-    poi: POI
-  ) => {
-    setSavedLocations((previous) => {
-      const exists =
-        previous.some(
-          (item) =>
-            item.id === poi.id
-        );
-
-      if (exists) {
-        showToast(
-          `Removed "${poi.name}" from saved places`
-        );
-
-        return previous.filter(
-          (item) =>
-            item.id !== poi.id
-        );
-      }
-
-      showToast(
-        `Saved "${poi.name}" to favorites`
+    if (currentUser) {
+      const { data, error } = await savedPlacesService.createSavedPlace(
+        newPoi.name,
+        newPoi.coordinate.lat,
+        newPoi.coordinate.lng
       );
 
-      return [
-        ...previous,
-        {
-          ...poi,
-          isSaved: true,
-        },
-      ];
-    });
+      if (error) {
+        showToast(`Saved locally (Cloud sync failed: ${error})`);
+      } else if (data) {
+        setSavedLocations((prev) =>
+          prev.map((p) => (p.id === newPoi.id ? { ...p, id: data.id } : p))
+        );
+        showToast(`Saved "${newPoi.name}" to Supabase cloud`);
+      }
+    } else {
+      showToast(`Added "${newPoi.name}" to offline saved places`);
+    }
+  };
+
+  const handleDeleteSavedLocation = async (id: string) => {
+    setSavedLocations((prev) => prev.filter((p) => p.id !== id));
+
+    if (currentUser) {
+      const { error } = await savedPlacesService.deleteSavedPlace(id);
+      if (error) {
+        showToast(`Deleted locally (Cloud sync error: ${error})`);
+      } else {
+        showToast('Deleted place from Supabase cloud');
+      }
+    } else {
+      showToast('Removed saved location');
+    }
+  };
+
+  const handleToggleSavePOI = (poi: POI) => {
+    const exists = savedLocations.some(
+      (p) => p.id === poi.id || p.name === poi.name
+    );
+
+    if (exists) {
+      const existing = savedLocations.find(
+        (p) => p.id === poi.id || p.name === poi.name
+      );
+      if (existing) {
+        handleDeleteSavedLocation(existing.id);
+      }
+    } else {
+      handleAddSavedLocation({ ...poi, isSaved: true });
+    }
+  };
+
+  const handleUpdatePreferences = async (prefs: {
+    voice_enabled?: boolean;
+    dark_mode?: boolean;
+  }) => {
+    if (currentUser) {
+      await preferencesService.savePreferences(prefs);
+    }
   };
 
   // =========================================================
-  // 15-STEP HACKATHON DEMO
+  // DEMO DISPATCHER
   // =========================================================
 
   const handleRunDemoStep = (
     stepNumber: number
   ) => {
     switch (stepNumber) {
-
-      // -----------------------------------------------------
-      // STEP 1 — LAUNCH
-      // -----------------------------------------------------
-
       case 1:
         setShowSplash(true);
-
-        showToast(
-          'Step 1: Launching IQOO NavX'
-        );
-
         break;
-
-      // -----------------------------------------------------
-      // STEP 2 — REGIONAL OFFLINE MAPS
-      // -----------------------------------------------------
 
       case 2:
         setIsDownloadRegionOpen(true);
-
         showToast(
-          'Step 2: Regional Offline Maps'
+          'Step 2: Viewing Regional Offline Map Packages'
         );
-
         break;
-
-      // -----------------------------------------------------
-      // STEP 3 — SELECT COLLEGE
-      // -----------------------------------------------------
 
       case 3:
         if (collegePoi) {
           setSelectedDestination(
             collegePoi
           );
-
-          setDetailedPoi(
-            collegePoi
-          );
-
+          setDetailedPoi(collegePoi);
           setIsDestinationDetailsOpen(
             true
           );
         }
-
         showToast(
-          'Step 3: College selected as destination'
+          'Step 3: Selected Destination (College)'
         );
-
         break;
-
-      // -----------------------------------------------------
-      // STEP 4 — CALCULATE ROUTE
-      // -----------------------------------------------------
 
       case 4:
         if (collegePoi) {
-          void handleCalculateRoute(
+          handleCalculateRoute(
             collegePoi
-          ).then((route) => {
-            if (route) {
-              showToast(
-                'Step 4: Route calculated successfully'
-              );
-            }
-          });
+          );
         }
-
+        showToast(
+          'Step 4: Calculated Route'
+        );
         break;
-
-      // -----------------------------------------------------
-      // STEP 5 — START NAVIGATION
-      // -----------------------------------------------------
 
       case 5:
-        void handleStartNavigation();
-
+        handleStartNavigation();
         showToast(
-          'Step 5: Turn-by-turn navigation started'
+          'Step 5: Started Turn-by-Turn Navigation'
         );
-
         break;
-
-      // -----------------------------------------------------
-      // STEP 6 — INTERNET OFF
-      // -----------------------------------------------------
 
       case 6:
-        setIsOfflineForced(true);
-
-        routeManager.setOfflineSimulation(
-          true
-        );
-
-        showToast(
-          'Step 6: Internet connection disabled'
-        );
-
-        break;
-
-      // -----------------------------------------------------
-      // STEP 7 — OFFLINE NAVIGATION CONTINUES
-      // -----------------------------------------------------
-
       case 7:
         setIsOfflineForced(true);
-
         routeManager.setOfflineSimulation(
           true
         );
-
         showToast(
-          'Step 7: Offline navigation continues'
+          'Step 6 & 7: Internet Disabled — Offline Navigation Active'
         );
-
         break;
 
-      // -----------------------------------------------------
-      // STEP 8 — GPS WEAK
-      // -----------------------------------------------------
-
-      case 8:
+      case 9:
+      case 10:
         positionManager.setGpsQuality(
           'weak'
         );
-
         showToast(
-          'Step 8: GPS weak — sensor-assisted positioning active'
+          'Step 9 & 10: GPS Weak — 6-DOF Sensor Dead Reckoning Active'
         );
-
         break;
-
-      // -----------------------------------------------------
-      // STEP 9 — DEAD RECKONING
-      // -----------------------------------------------------
-
-      case 9:
-        positionManager.stepDeadReckoning(
-          Math.max(
-            posState.speed,
-            8
-          ),
-          posState.heading,
-          1.0
-        );
-
-        showToast(
-          'Step 9: Dead reckoning maintains position'
-        );
-
-        break;
-
-      // -----------------------------------------------------
-      // STEP 10 — GPS RESTORED
-      // -----------------------------------------------------
-
-      case 10: {
-        const recoveryTarget =
-          navProgress.activeRoute?.destination ||
-          selectedDestination?.coordinate ||
-          collegePoi.coordinate;
-
-        positionManager.setGpsQuality(
-          'strong',
-          recoveryTarget
-        );
-
-        showToast(
-          'Step 10: GPS restored — position smoothly corrected'
-        );
-
-        break;
-      }
-
-      // -----------------------------------------------------
-      // STEP 11 — AI VOICE
-      // -----------------------------------------------------
 
       case 11:
-        setIsVoiceModalOpen(true);
-
-        showToast(
-          'Step 11: AI voice navigation ready'
-        );
-
-        break;
-
-      // -----------------------------------------------------
-      // STEP 12 — ORIGIN ISLAND
-      // -----------------------------------------------------
-
       case 12:
+        navCtrl.simulateMissedTurn();
         showToast(
-          'Step 12: Origin Island live navigation status active'
+          'Step 11 & 12: Missed Turn Detected — Instant Offline Reroute'
         );
-
         break;
-
-      // -----------------------------------------------------
-      // STEP 13 — LOW BATTERY
-      // -----------------------------------------------------
 
       case 13:
-        batteryManager.setSimulatedBatteryLevel(
-          0.15
+      case 14:
+        positionManager.setGpsQuality(
+          'strong'
         );
-
         showToast(
-          'Step 13: Low battery detected'
+          'Step 13 & 14: Restored GPS — Position Corrected Smoothly'
         );
-
         break;
 
-      // -----------------------------------------------------
-      // STEP 14 — ULTRA NAVIGATION MODE
-      // -----------------------------------------------------
+      case 15:
+        setIsVoiceModalOpen(true);
+        showToast(
+          'Step 15: AI Voice Navigation Engine Ready'
+        );
+        break;
 
-      case 14:
+      case 17:
+        showToast(
+          'Step 17: Origin Island Live Status Component Active'
+        );
+        break;
+
+      case 18:
+      case 19:
         batteryManager.toggleUltraMode(
           true
         );
-
         showToast(
-          'Step 14: Ultra Navigation Mode activated'
+          'Step 18 & 19: Low Battery — Ultra Navigation Mode Active'
         );
-
-        break;
-
-      // -----------------------------------------------------
-      // STEP 15 — CONTINUE NAVIGATION
-      // -----------------------------------------------------
-
-      case 15:
-        showToast(
-          'Step 15: Navigation continues in Ultra Mode'
-        );
-
         break;
 
       default:
@@ -824,44 +784,41 @@ export const App: React.FC = () => {
   };
 
   // =========================================================
-  // NAVIGATION STATE HELPERS
+  // DERIVED STATE
   // =========================================================
 
   const isNavigating =
-    navProgress.status === 'navigating' ||
+    navProgress.status ===
+      'navigating' ||
     navProgress.status === 'rerouting';
 
   const isPreviewing =
-    navProgress.status === 'previewing' &&
+    navProgress.status ===
+      'previewing' &&
     navProgress.activeRoute !== null;
 
   const isIdle =
-    navProgress.status === 'idle' ||
-    navProgress.status === 'arrived';
+    navProgress.status === 'idle';
 
   // =========================================================
-  // LANDING PAGE
+  // RENDER: LANDING PAGE
   // =========================================================
 
   if (viewMode === 'landing') {
     return (
       <LandingPage
-        onLaunchApp={
-          handleLaunchApp
-        }
+        onLaunchApp={handleLaunchApp}
       />
     );
   }
 
   // =========================================================
-  // MAIN APPLICATION
+  // RENDER: MAIN APPLICATION
   // =========================================================
 
   return (
     <div className="min-h-screen bg-[#08090A] text-[#F5F7F8] flex flex-col items-center justify-start relative overflow-x-hidden font-sans">
-
-      {/* SPLASH SCREEN */}
-
+      {/* 1. App Launch Splash Screen */}
       {showSplash && (
         <SplashScreen
           onComplete={() =>
@@ -870,20 +827,15 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* HEADER */}
-
+      {/* Header */}
       <NavigationHeader
-        isNavigating={
-          isNavigating
-        }
-        isOffline={
-          isOfflineForced
-        }
-        posState={
-          posState
-        }
-        batteryState={
-          batteryState
+        isNavigating={isNavigating}
+        isOffline={isOfflineForced}
+        posState={posState}
+        batteryState={batteryState}
+        currentUser={currentUser}
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
         }
         onBackOrStopNav={() =>
           navCtrl.stopNavigation()
@@ -901,8 +853,7 @@ export const App: React.FC = () => {
         }
       />
 
-      {/* MAIN APP FRAME */}
-
+      {/* Main Content */}
       <main
         className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
           isPhoneFrameView
@@ -917,56 +868,37 @@ export const App: React.FC = () => {
               : 'min-h-[720px]'
           }`}
         >
-
-          {/* ORIGIN ISLAND */}
-
+          {/* Origin Island */}
           <OriginIsland
-            navProgress={
-              navProgress
-            }
-            posState={
-              posState
-            }
-            batteryState={
-              batteryState
-            }
-            isOffline={
-              isOfflineForced
-            }
+            navProgress={navProgress}
+            posState={posState}
+            batteryState={batteryState}
+            isOffline={isOfflineForced}
             onToggleUltraMode={() =>
               batteryManager.toggleUltraMode()
             }
           />
 
-          {/* TURN GUIDANCE HUD */}
-
+          {/* Turn Guidance HUD */}
           <TurnGuidanceHUD
-            progress={
-              navProgress
-            }
-            posState={
-              posState
-            }
+            progress={navProgress}
+            posState={posState}
             activeRoute={
               navProgress.activeRoute
             }
-            isMuted={
-              isVoiceMuted
-            }
-            isOffline={
-              isOfflineForced
-            }
+            isMuted={isVoiceMuted}
+            isOffline={isOfflineForced}
             onToggleMute={() => {
               const muted =
                 !isVoiceMuted;
 
-              setIsVoiceMuted(
-                muted
-              );
-
+              setIsVoiceMuted(muted);
               voiceEngine.setMuted(
                 muted
               );
+              handleUpdatePreferences({
+                voice_enabled: !muted,
+              });
             }}
             onStopNav={() =>
               navCtrl.stopNavigation()
@@ -975,23 +907,17 @@ export const App: React.FC = () => {
               navCtrl.simulateMissedTurn()
             }
             onOpenVoice={() =>
-              setIsVoiceModalOpen(
-                true
-              )
+              setIsVoiceModalOpen(true)
             }
           />
 
-          {/* MAP AREA */}
-
+          {/* Interactive Map */}
           <div className="flex-1 w-full relative min-h-[420px]">
-
             <MapView
               currentPosition={
                 posState.currentPosition
               }
-              positionState={
-                posState
-              }
+              positionState={posState}
               activeRoute={
                 navProgress.activeRoute
               }
@@ -1005,18 +931,14 @@ export const App: React.FC = () => {
                 batteryState.isUltraMode
               }
               onSelectPOI={(poi) => {
-                setDetailedPoi(
-                  poi
-                );
-
+                setDetailedPoi(poi);
                 setIsDestinationDetailsOpen(
                   true
                 );
               }}
             />
 
-            {/* HOME OVERLAY */}
-
+            {/* Home Screen Overlay */}
             {isIdle && (
               <HomeScreenOverlay
                 activeRegion={
@@ -1025,9 +947,7 @@ export const App: React.FC = () => {
                 savedLocations={
                   savedLocations
                 }
-                posState={
-                  posState
-                }
+                posState={posState}
                 batteryState={
                   batteryState
                 }
@@ -1054,11 +974,10 @@ export const App: React.FC = () => {
                     true
                   )
                 }
-                onSelectDestination={(poi) => {
-                  setDetailedPoi(
-                    poi
-                  );
-
+                onSelectDestination={(
+                  poi
+                ) => {
+                  setDetailedPoi(poi);
                   setIsDestinationDetailsOpen(
                     true
                   );
@@ -1071,8 +990,7 @@ export const App: React.FC = () => {
               />
             )}
 
-            {/* ROUTE CONTEXT */}
-
+            {/* Route Context Card */}
             {isNavigating &&
               navProgress.activeRoute && (
                 <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
@@ -1085,11 +1003,9 @@ export const App: React.FC = () => {
                   />
                 </div>
               )}
-
           </div>
 
-          {/* ROUTE PREVIEW */}
-
+          {/* Route Preview Card */}
           {isPreviewing &&
             navProgress.activeRoute && (
               <RoutePreviewCard
@@ -1105,31 +1021,25 @@ export const App: React.FC = () => {
               />
             )}
 
-          {/* LOW BATTERY WARNING */}
-
+          {/* Low Battery Warning */}
           {batteryState.isLowBattery &&
             !batteryState.isUltraMode && (
               <div className="mx-4 my-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-500/40 text-amber-200 flex items-center justify-between z-30 select-none">
-
                 <div className="flex items-center gap-2">
-
                   <Zap
                     size={16}
                     className="text-[#FFD400] animate-pulse"
                   />
-
                   <span className="text-xs font-semibold">
                     Battery low (
                     {Math.round(
                       batteryState.level *
                         100
                     )}
-                    %) — Ultra Navigation Mode
-                    recommended
+                    %) — Ultra Navigation
+                    Mode recommended
                   </span>
-
                 </div>
-
                 <button
                   onClick={() =>
                     batteryManager.toggleUltraMode(
@@ -1140,17 +1050,13 @@ export const App: React.FC = () => {
                 >
                   Enable
                 </button>
-
               </div>
             )}
 
-          {/* BOTTOM NAVIGATION */}
-
+          {/* Bottom Bar */}
           <BottomNavBar
-            activeTab={
-              activeTab
-            }
-            onChange={
+            activeTab={activeTab}
+            onChangeTab={
               handleSelectTab
             }
             isNavigating={
@@ -1158,30 +1064,23 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* TOAST */}
-
+          {/* Toast Notification */}
           {toastMessage && (
             <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#FFD400] text-black font-extrabold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 font-display">
-
               <Sparkles size={14} />
-
               <span>
                 {toastMessage}
               </span>
-
             </div>
           )}
 
-          {/* ULTRA MODE */}
-
+          {/* Ultra Navigation Overlay */}
           {batteryState.isUltraMode && (
             <UltraNavOverlay
               navProgress={
                 navProgress
               }
-              posState={
-                posState
-              }
+              posState={posState}
               batteryState={
                 batteryState
               }
@@ -1192,13 +1091,13 @@ export const App: React.FC = () => {
                 const muted =
                   !isVoiceMuted;
 
-                setIsVoiceMuted(
-                  muted
-                );
-
+                setIsVoiceMuted(muted);
                 voiceEngine.setMuted(
                   muted
                 );
+                handleUpdatePreferences({
+                  voice_enabled: !muted,
+                });
               }}
               onExitUltraMode={() =>
                 batteryManager.toggleUltraMode(
@@ -1207,26 +1106,16 @@ export const App: React.FC = () => {
               }
             />
           )}
-
         </div>
       </main>
 
-      {/* =====================================================
-          ENGINE DRAWER
-          ===================================================== */}
-
+      {/* NavX Engine Drawer */}
       <NavXEngineDrawer
-        isOpen={
-          isEngineDrawerOpen
-        }
+        isOpen={isEngineDrawerOpen}
         onClose={() =>
-          setIsEngineDrawerOpen(
-            false
-          )
+          setIsEngineDrawerOpen(false)
         }
-        isOffline={
-          isOfflineForced
-        }
+        isOffline={isOfflineForced}
         onToggleInternet={() => {
           const nextState =
             !isOfflineForced;
@@ -1245,9 +1134,7 @@ export const App: React.FC = () => {
               : 'Simulating Online Mode'
           );
         }}
-        posState={
-          posState
-        }
+        posState={posState}
         onSetGpsQuality={(quality) => {
           positionManager.setGpsQuality(
             quality,
@@ -1262,83 +1149,53 @@ export const App: React.FC = () => {
         }}
         onSimulateMissedTurn={() => {
           navCtrl.simulateMissedTurn();
-
           showToast(
             'Missed turn simulated! Calculating offline alternative route...'
           );
         }}
-        batteryState={
-          batteryState
-        }
-        onSetBatteryLevel={(level) =>
+        batteryState={batteryState}
+        onSetBatteryLevel={(lvl) =>
           batteryManager.setSimulatedBatteryLevel(
-            level
+            lvl
           )
         }
         onToggleUltraMode={() =>
           batteryManager.toggleUltraMode()
         }
-        navProgress={
-          navProgress
-        }
+        navProgress={navProgress}
         onRunAutoDemoStep={(step) =>
           handleRunDemoStep(step)
         }
       />
 
-      {/* =====================================================
-          SEARCH
-          ===================================================== */}
-
+      {/* Overlays & Modals */}
       <SearchScreen
-        isOpen={
-          isSearchScreenOpen
-        }
+        isOpen={isSearchScreenOpen}
         onClose={() =>
-          setIsSearchScreenOpen(
-            false
-          )
+          setIsSearchScreenOpen(false)
         }
-        activeRegion={
-          activeRegion
-        }
+        activeRegion={activeRegion}
         currentCoord={
           posState.currentPosition
         }
-        savedLocations={
-          savedLocations
-        }
+        savedLocations={savedLocations}
         onSelectDestination={(poi) => {
-          setIsSearchScreenOpen(
-            false
-          );
-
-          setDetailedPoi(
-            poi
-          );
-
+          setIsSearchScreenOpen(false);
+          setDetailedPoi(poi);
           setIsDestinationDetailsOpen(
             true
           );
         }}
         onOpenVoice={() =>
-          setIsVoiceModalOpen(
-            true
-          )
+          setIsVoiceModalOpen(true)
         }
       />
-
-      {/* =====================================================
-          DESTINATION DETAILS
-          ===================================================== */}
 
       <DestinationDetailsModal
         isOpen={
           isDestinationDetailsOpen
         }
-        poi={
-          detailedPoi
-        }
+        poi={detailedPoi}
         onClose={() =>
           setIsDestinationDetailsOpen(
             false
@@ -1351,184 +1208,127 @@ export const App: React.FC = () => {
           setIsDestinationDetailsOpen(
             false
           );
-
-          void handleCalculateRoute(
-            poi
-          );
+          handleCalculateRoute(poi);
         }}
-        onToggleSave={
-          handleToggleSavePOI
-        }
+        onToggleSave={handleToggleSavePOI}
         onOpenVoice={() =>
-          setIsVoiceModalOpen(
-            true
-          )
+          setIsVoiceModalOpen(true)
         }
       />
 
-      {/* =====================================================
-          SAVED LOCATIONS
-          ===================================================== */}
-
       <SavedLocationsScreen
-        isOpen={
-          isSavedLocationsOpen
-        }
+        isOpen={isSavedLocationsOpen}
         onClose={() => {
           setIsSavedLocationsOpen(
             false
           );
-
           setActiveTab('map');
         }}
-        savedLocations={
-          savedLocations
-        }
+        savedLocations={savedLocations}
         currentCoord={
           posState.currentPosition
+        }
+        currentUser={currentUser}
+        isLoading={isSavedPlacesLoading}
+        errorMessage={savedPlacesError}
+        onRefresh={() =>
+          loadCloudSavedPlaces(
+            currentUser
+          )
+        }
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
         }
         onSelectDestination={(poi) => {
           setIsSavedLocationsOpen(
             false
           );
-
-          void handleCalculateRoute(
-            poi
-          );
+          handleCalculateRoute(poi);
         }}
-        onAddLocation={(newPoi) => {
-          setSavedLocations(
-            (previous) => [
-              ...previous,
-              newPoi,
-            ]
-          );
-
-          showToast(
-            `Added "${newPoi.name}" to saved locations`
-          );
-        }}
-        onDeleteLocation={(id) => {
-          setSavedLocations(
-            (previous) =>
-              previous.filter(
-                (poi) =>
-                  poi.id !== id
-              )
-          );
-
-          showToast(
-            'Removed saved location'
-          );
-        }}
+        onAddLocation={
+          handleAddSavedLocation
+        }
+        onDeleteLocation={
+          handleDeleteSavedLocation
+        }
       />
 
-      {/* =====================================================
-          DOWNLOAD REGIONS
-          ===================================================== */}
-
       <DownloadRegionScreen
-        isOpen={
-          isDownloadRegionOpen
-        }
+        isOpen={isDownloadRegionOpen}
         onClose={() => {
           setIsDownloadRegionOpen(
             false
           );
-
           setActiveTab('map');
         }}
-        activeRegion={
-          activeRegion
-        }
-        onSelectRegion={(region) => {
-          // Stop old navigation before switching
-          // to another region.
-          if (
-            navProgress.status ===
-              'navigating' ||
-            navProgress.status ===
-              'rerouting' ||
-            navProgress.status ===
-              'previewing' ||
-            navProgress.status ===
-              'paused'
-          ) {
-            navCtrl.stopNavigation();
-          }
-
-          setActiveRegion(
-            region
-          );
-
+        activeRegion={activeRegion}
+        onSelectRegion={(reg) => {
+          setActiveRegion(reg);
           showToast(
-            `Active offline region set to: ${region.name}`
+            `Active offline region set to: ${reg.name}`
           );
         }}
       />
 
-      {/* =====================================================
-          SETTINGS
-          ===================================================== */}
-
       <SettingsScreen
-        isOpen={
-          isSettingsScreenOpen
-        }
+        isOpen={isSettingsScreenOpen}
         onClose={() => {
           setIsSettingsScreenOpen(
             false
           );
-
           setActiveTab('map');
         }}
-        batteryState={
-          batteryState
+        batteryState={batteryState}
+        currentUser={currentUser}
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
+        }
+        onUpdatePreferences={
+          handleUpdatePreferences
         }
         onToggleUltraMode={() =>
           batteryManager.toggleUltraMode()
         }
-        isVoiceMuted={
-          isVoiceMuted
-        }
+        isVoiceMuted={isVoiceMuted}
         onToggleMute={() => {
           const muted =
             !isVoiceMuted;
 
-          setIsVoiceMuted(
-            muted
-          );
-
+          setIsVoiceMuted(muted);
           voiceEngine.setMuted(
             muted
           );
+          handleUpdatePreferences({
+            voice_enabled: !muted,
+          });
         }}
       />
 
-      {/* =====================================================
-          AI VOICE PANEL
-          ===================================================== */}
-
       <VoiceAIPanel
-        isOpen={
-          isVoiceModalOpen
-        }
+        isOpen={isVoiceModalOpen}
         onClose={() =>
-          setIsVoiceModalOpen(
-            false
-          )
+          setIsVoiceModalOpen(false)
         }
-        activeRegion={
-          activeRegion
-        }
-        savedLocations={
-          savedLocations
-        }
+        activeRegion={activeRegion}
+        savedLocations={savedLocations}
         onExecuteCommand={
           handleExecuteAICommand
         }
       />
 
+      {/* Supabase Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() =>
+          setIsAuthModalOpen(false)
+        }
+        currentUser={currentUser}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          loadCloudSavedPlaces(user);
+          loadCloudPreferences(user);
+        }}
+      />
     </div>
   );
 };

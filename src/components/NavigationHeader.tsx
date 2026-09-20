@@ -1,13 +1,16 @@
 import React from 'react';
-import { ArrowLeft, Radio, Zap, Globe, Smartphone, Monitor } from 'lucide-react';
+import { ArrowLeft, Radio, Zap, Globe, Smartphone, Monitor, Cloud, CloudOff } from 'lucide-react';
 import { PositionState, BatteryState } from '../types';
 import { IQOOLogo } from './IQOOLogo';
+import { User } from '@supabase/supabase-js';
 
 interface NavigationHeaderProps {
   isNavigating: boolean;
   isOffline: boolean;
   posState: PositionState;
   batteryState: BatteryState;
+  currentUser?: User | null;
+  onOpenAuth?: () => void;
   onBackOrStopNav: () => void;
   onToggleViewMode: () => void;
   isPhoneFrameView: boolean;
@@ -19,6 +22,8 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
   isOffline,
   posState,
   batteryState,
+  currentUser = null,
+  onOpenAuth,
   onBackOrStopNav,
   onToggleViewMode,
   isPhoneFrameView,
@@ -65,6 +70,24 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
         ) : (
           /* Normal State: GPS and Battery indicator */
           <div className="flex items-center gap-2">
+            {/* Supabase Cloud Auth Button */}
+            {onOpenAuth && (
+              <button
+                onClick={onOpenAuth}
+                title={currentUser ? `Signed in as ${currentUser.email} (Supabase Cloud)` : 'Sign in to Supabase (Sync)'}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[11px] font-bold transition-colors ${
+                  currentUser
+                    ? 'bg-[#22C55E]/10 border-[#22C55E]/30 text-[#22C55E] hover:bg-[#22C55E]/20'
+                    : 'bg-[#191C1F] border-[#2B2F33] text-[#A4A9AE] hover:text-[#FFD400]'
+                }`}
+              >
+                {currentUser ? <Cloud size={12} className="text-[#22C55E]" /> : <CloudOff size={12} />}
+                <span className="hidden sm:inline font-mono text-[10px]">
+                  {currentUser ? 'Cloud' : 'Offline'}
+                </span>
+              </button>
+            )}
+
             {/* GPS Telemetry */}
             <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#191C1F] border border-[#2B2F33] text-[11px] font-bold">
               <Radio size={12} className={posState.isSensorAssisted ? 'text-[#3B82F6]' : 'text-[#22C55E]'} />

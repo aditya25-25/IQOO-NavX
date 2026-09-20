@@ -12,16 +12,27 @@ import {
   Fuel, 
   Train, 
   MapPin,
-  Check
+  Check,
+  Cloud,
+  CloudOff,
+  RotateCw,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { POI, Coordinates } from '../types';
 import { getDistanceMeters } from '../engine/offlineRouter';
+import { User } from '@supabase/supabase-js';
 
 interface SavedLocationsScreenProps {
   isOpen: boolean;
   onClose: () => void;
   savedLocations: POI[];
   currentCoord: Coordinates;
+  currentUser: User | null;
+  isLoading?: boolean;
+  errorMessage?: string | null;
+  onRefresh?: () => void;
+  onOpenAuth?: () => void;
   onSelectDestination: (poi: POI) => void;
   onAddLocation: (poi: POI) => void;
   onDeleteLocation: (id: string) => void;
@@ -32,6 +43,11 @@ export const SavedLocationsScreen: React.FC<SavedLocationsScreenProps> = ({
   onClose,
   savedLocations,
   currentCoord,
+  currentUser,
+  isLoading = false,
+  errorMessage = null,
+  onRefresh,
+  onOpenAuth,
   onSelectDestination,
   onAddLocation,
   onDeleteLocation,
@@ -106,18 +122,64 @@ export const SavedLocationsScreen: React.FC<SavedLocationsScreenProps> = ({
             <h1 className="text-base font-bold text-[#F5F7F8] font-display">
               Saved Locations
             </h1>
-            <p className="text-[10px] text-[#A4A9AE]">1-Tap Navigation to Frequent Places</p>
+            <div className="flex items-center gap-1.5 text-[10px]">
+              {currentUser ? (
+                <span className="text-[#22C55E] flex items-center gap-1 font-medium">
+                  <Cloud size={11} />
+                  Supabase Cloud Synced
+                </span>
+              ) : (
+                <button 
+                  onClick={onOpenAuth}
+                  className="text-[#A4A9AE] hover:text-[#FFD400] flex items-center gap-1 transition-colors underline"
+                >
+                  <CloudOff size={11} />
+                  Local Offline (Sign in to sync)
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        <button
-          onClick={() => setIsAddingNew(!isAddingNew)}
-          className="flex items-center gap-1 px-3 py-2 rounded-2xl bg-[#FFD400] text-black text-xs font-bold font-display hover:bg-[#e6bf00] transition-colors shadow-md"
-        >
-          <Plus size={15} />
-          <span>Add Place</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isLoading}
+              title="Refresh places"
+              className="p-2.5 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-[#FFD400] transition-colors disabled:opacity-50"
+            >
+              <RotateCw size={15} className={isLoading ? 'animate-spin' : ''} />
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsAddingNew(!isAddingNew)}
+            className="flex items-center gap-1 px-3 py-2 rounded-2xl bg-[#FFD400] text-black text-xs font-bold font-display hover:bg-[#e6bf00] transition-colors shadow-md"
+          >
+            <Plus size={15} />
+            <span>Add Place</span>
+          </button>
+        </div>
       </div>
+
+      {/* Error Message Banner */}
+      {errorMessage && (
+        <div className="mt-3 p-3 rounded-2xl bg-rose-950/60 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={15} className="flex-shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="text-[11px] font-bold text-[#FFD400] underline ml-2 hover:opacity-80"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Add New Place Form */}
       {isAddingNew && (
@@ -182,11 +244,16 @@ export const SavedLocationsScreen: React.FC<SavedLocationsScreenProps> = ({
 
       {/* Locations List */}
       <div className="flex-1 overflow-y-auto space-y-2 py-3">
-        {savedLocations.length === 0 ? (
+        {isLoading && savedLocations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center text-[#A4A9AE] space-y-2">
+            <Loader2 size={32} className="animate-spin text-[#FFD400]" />
+            <p className="text-xs font-semibold text-[#F5F7F8]">Loading saved places...</p>
+          </div>
+        ) : savedLocations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-[#A4A9AE] space-y-2">
             <Star size={36} className="text-[#6F757B]" />
             <p className="text-xs font-semibold text-[#F5F7F8]">No saved locations yet</p>
-            <p className="text-[11px]">Add your Home, College, or Work for fast offline navigation</p>
+            <p className="text-[11px]">Add your Home, College, or Work for fast 1-tap navigation</p>
           </div>
         ) : (
           savedLocations.map((poi) => {

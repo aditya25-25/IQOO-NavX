@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import { 
-  ArrowLeft
+  ArrowLeft,
+  Cloud,
+  CloudOff,
+  User as UserIcon,
+  ShieldCheck,
+  ChevronRight
 } from 'lucide-react';
 import { BatteryState } from '../types';
+import { User } from '@supabase/supabase-js';
 
 interface SettingsScreenProps {
   isOpen: boolean;
@@ -11,6 +17,9 @@ interface SettingsScreenProps {
   onToggleUltraMode: (enable?: boolean) => void;
   isVoiceMuted: boolean;
   onToggleMute: () => void;
+  currentUser?: User | null;
+  onOpenAuth?: () => void;
+  onUpdatePreferences?: (prefs: { voice_enabled?: boolean; dark_mode?: boolean }) => void;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
@@ -20,6 +29,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onToggleUltraMode,
   isVoiceMuted,
   onToggleMute,
+  currentUser = null,
+  onOpenAuth,
+  onUpdatePreferences,
 }) => {
   const [avoidTolls, setAvoidTolls] = useState(false);
   const [useOfflineMaps, setUseOfflineMaps] = useState(true);
@@ -27,26 +39,77 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   if (!isOpen) return null;
 
+  const handleVoiceToggle = () => {
+    onToggleMute();
+    if (onUpdatePreferences) {
+      // If voice is currently muted, toggling means enabling voice (voice_enabled: true)
+      onUpdatePreferences({ voice_enabled: isVoiceMuted });
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-[#08090A] text-[#F5F7F8] flex flex-col p-4 select-none animate-in fade-in duration-200">
       {/* Top Header */}
-      <div className="flex items-center gap-2 pb-3 border-b border-[#2B2F33]">
-        <button
-          onClick={onClose}
-          className="p-2.5 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-[#F5F7F8] transition-colors"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <h1 className="text-base font-bold text-[#F5F7F8] font-display">
-            Settings
-          </h1>
-          <p className="text-[10px] text-[#A4A9AE]">IQOO NavX Mobile Preferences</p>
+      <div className="flex items-center justify-between pb-3 border-b border-[#2B2F33]">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onClose}
+            className="p-2.5 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-[#F5F7F8] transition-colors"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 className="text-base font-bold text-[#F5F7F8] font-display">
+              Settings
+            </h1>
+            <p className="text-[10px] text-[#A4A9AE]">IQOO NavX Mobile Preferences</p>
+          </div>
         </div>
+
+        {currentUser && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/30 text-[#22C55E] text-[10px] font-semibold">
+            <Cloud size={12} />
+            <span>Synced</span>
+          </div>
+        )}
       </div>
 
       {/* Settings Sections List */}
       <div className="flex-1 overflow-y-auto space-y-4 py-3 pb-6">
+        {/* Section: Cloud Account & Sync */}
+        <div className="p-4 rounded-3xl bg-[#111315] border border-[#2B2F33] space-y-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#FFD400] font-display">
+            Supabase Cloud Sync
+          </span>
+
+          <div 
+            onClick={onOpenAuth}
+            className="p-3 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] border border-[#2B2F33] flex items-center justify-between cursor-pointer transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-[#FFD400]/10 text-[#FFD400]">
+                {currentUser ? <UserIcon size={18} /> : <CloudOff size={18} />}
+              </div>
+              <div>
+                <div className="text-xs font-bold text-[#F5F7F8]">
+                  {currentUser ? currentUser.email : 'Local Guest Mode'}
+                </div>
+                <div className="text-[11px] text-[#A4A9AE] flex items-center gap-1">
+                  {currentUser ? (
+                    <span className="text-[#22C55E] flex items-center gap-1">
+                      <ShieldCheck size={12} /> Cloud synced with RLS
+                    </span>
+                  ) : (
+                    'Tap to sign in and sync saved places'
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <ChevronRight size={16} className="text-[#6F757B]" />
+          </div>
+        </div>
+
         {/* Section: Navigation & Voice */}
         <div className="p-4 rounded-3xl bg-[#111315] border border-[#2B2F33] space-y-3">
           <span className="text-xs font-bold uppercase tracking-wider text-[#FFD400] font-display">
@@ -59,7 +122,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <span className="text-[11px] text-[#A4A9AE]">Spoken turn-by-turn prompts</span>
             </div>
             <button
-              onClick={onToggleMute}
+              onClick={handleVoiceToggle}
               className={`w-12 h-6 rounded-full transition-colors relative flex items-center p-1 ${
                 !isVoiceMuted ? 'bg-[#FFD400]' : 'bg-[#22262A]'
               }`}

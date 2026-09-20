@@ -18,6 +18,7 @@ import {
   WifiOff,
   Bookmark,
   Crosshair,
+  Cross,
   CloudOff,
 } from 'lucide-react';
 

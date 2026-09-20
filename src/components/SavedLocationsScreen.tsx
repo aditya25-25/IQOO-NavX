@@ -1,23 +1,25 @@
+```tsx
 import React, { useState } from 'react';
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  Navigation, 
-  Star, 
-  Home, 
-  GraduationCap, 
-  Building2, 
-  Cross, 
-  Fuel, 
-  Train, 
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Navigation,
+  Star,
+  Home,
+  GraduationCap,
+  Building2,
+  Cross,
+  Fuel,
+  Train,
   MapPin,
   Check,
   Cloud,
   CloudOff,
   RotateCw,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { POI, Coordinates } from '../types';
 import { getDistanceMeters } from '../engine/offlineRouter';
@@ -55,27 +57,77 @@ export const SavedLocationsScreen: React.FC<SavedLocationsScreenProps> = ({
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
   const [newAddress, setNewAddress] = useState('');
-  const [newCategory, setNewCategory] = useState<'home' | 'college' | 'work' | 'hospital' | 'fuel' | 'transit'>('work');
+  const [newCategory, setNewCategory] = useState<
+    'home' | 'college' | 'work' | 'hospital' | 'fuel' | 'transit'
+  >('work');
 
   if (!isOpen) return null;
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'college':
-        return <GraduationCap size={16} className="text-[#FFD400]" />;
+        return (
+          <GraduationCap
+            size={17}
+            className="text-[#FFD400]"
+            strokeWidth={2.3}
+          />
+        );
+
       case 'home':
-        return <Home size={16} className="text-[#22C55E]" />;
+        return (
+          <Home
+            size={17}
+            className="text-[#22C55E]"
+            strokeWidth={2.3}
+          />
+        );
+
       case 'work':
       case 'tech_park':
-        return <Building2 size={16} className="text-[#3B82F6]" />;
+        return (
+          <Building2
+            size={17}
+            className="text-[#3B82F6]"
+            strokeWidth={2.3}
+          />
+        );
+
       case 'hospital':
-        return <Cross size={16} className="text-[#EF4444]" />;
+        return (
+          <Cross
+            size={17}
+            className="text-[#EF4444]"
+            strokeWidth={2.3}
+          />
+        );
+
       case 'fuel':
-        return <Fuel size={16} className="text-[#F59E0B]" />;
+        return (
+          <Fuel
+            size={17}
+            className="text-[#F59E0B]"
+            strokeWidth={2.3}
+          />
+        );
+
       case 'transit':
-        return <Train size={16} className="text-purple-400" />;
+        return (
+          <Train
+            size={17}
+            className="text-[#A78BFA]"
+            strokeWidth={2.3}
+          />
+        );
+
       default:
-        return <MapPin size={16} className="text-[#FFD400]" />;
+        return (
+          <MapPin
+            size={17}
+            className="text-[#FFD400]"
+            strokeWidth={2.3}
+          />
+        );
     }
   };
 
@@ -86,6 +138,7 @@ export const SavedLocationsScreen: React.FC<SavedLocationsScreenProps> = ({
 
   const handleCreateLocation = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!newName.trim()) return;
 
     const newPoi: POI = {
@@ -108,213 +161,323 @@ export const SavedLocationsScreen: React.FC<SavedLocationsScreenProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#08090A] text-[#F5F7F8] flex flex-col p-4 select-none animate-in fade-in duration-200">
-      {/* Top Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-[#2B2F33]">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onClose}
-            className="p-2.5 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-[#F5F7F8] transition-colors"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="text-base font-bold text-[#F5F7F8] font-display">
-              Saved Locations
-            </h1>
-            <div className="flex items-center gap-1.5 text-[10px]">
-              {currentUser ? (
-                <span className="text-[#22C55E] flex items-center gap-1 font-medium">
-                  <Cloud size={11} />
-                  Supabase Cloud Synced
-                </span>
-              ) : (
-                <button 
-                  onClick={onOpenAuth}
-                  className="text-[#A4A9AE] hover:text-[#FFD400] flex items-center gap-1 transition-colors underline"
-                >
-                  <CloudOff size={11} />
-                  Local Offline (Sign in to sync)
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              disabled={isLoading}
-              title="Refresh places"
-              className="p-2.5 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-[#FFD400] transition-colors disabled:opacity-50"
-            >
-              <RotateCw size={15} className={isLoading ? 'animate-spin' : ''} />
-            </button>
-          )}
-
-          <button
-            onClick={() => setIsAddingNew(!isAddingNew)}
-            className="flex items-center gap-1 px-3 py-2 rounded-2xl bg-[#FFD400] text-black text-xs font-bold font-display hover:bg-[#e6bf00] transition-colors shadow-md"
-          >
-            <Plus size={15} />
-            <span>Add Place</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Error Message Banner */}
-      {errorMessage && (
-        <div className="mt-3 p-3 rounded-2xl bg-rose-950/60 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={15} className="flex-shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              className="text-[11px] font-bold text-[#FFD400] underline ml-2 hover:opacity-80"
-            >
-              Retry
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Add New Place Form */}
-      {isAddingNew && (
-        <form onSubmit={handleCreateLocation} className="p-4 my-3 rounded-2xl bg-[#111315] border border-[#2B2F33] space-y-3 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between text-xs font-bold text-[#F5F7F8] font-display">
-            <span>Add New Saved Location</span>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#08090A] text-[#F5F7F8] select-none animate-in fade-in duration-200">
+      {/* Header */}
+      <header className="shrink-0 border-b border-[#2B2F33] bg-[#08090A] px-4 pb-3 pt-[max(12px,env(safe-area-inset-top))]">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsAddingNew(false)}
-              className="text-[#A4A9AE] hover:text-white"
+              onClick={onClose}
+              aria-label="Back to map"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#2B2F33] bg-[#111315] text-[#A4A9AE] transition-all hover:border-[#FFD400]/40 hover:bg-[#191C1F] hover:text-[#F5F7F8] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]/60"
             >
-              Cancel
+              <ArrowLeft size={18} />
             </button>
-          </div>
 
-          <input
-            type="text"
-            required
-            placeholder="Place Name (e.g. My Workspace, Gym)"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="w-full bg-[#191C1F] border border-[#2B2F33] rounded-xl px-3 py-2 text-xs text-[#F5F7F8] placeholder-[#6F757B] focus:outline-none focus:border-[#FFD400]"
-          />
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-black tracking-tight text-[#F5F7F8]">
+                Saved Locations
+              </h1>
 
-          <input
-            type="text"
-            placeholder="Address / Area"
-            value={newAddress}
-            onChange={(e) => setNewAddress(e.target.value)}
-            className="w-full bg-[#191C1F] border border-[#2B2F33] rounded-xl px-3 py-2 text-xs text-[#F5F7F8] placeholder-[#6F757B] focus:outline-none focus:border-[#FFD400]"
-          />
-
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold text-[#A4A9AE]">Category:</span>
-            <div className="flex gap-1 overflow-x-auto">
-              {(['work', 'college', 'home', 'fuel', 'hospital'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setNewCategory(cat)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
-                    newCategory === cat
-                      ? 'bg-[#FFD400] text-black'
-                      : 'bg-[#191C1F] text-[#A4A9AE] border border-[#2B2F33]'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+              <div className="mt-0.5 flex items-center gap-1.5 text-[9px]">
+                {currentUser ? (
+                  <span className="flex items-center gap-1 font-semibold text-[#22C55E]">
+                    <Cloud size={11} />
+                    Cloud synced
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onOpenAuth}
+                    className="flex items-center gap-1 font-medium text-[#6F757B] transition-colors hover:text-[#FFD400]"
+                  >
+                    <CloudOff size={11} />
+                    Local only · Sign in to sync
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full py-2.5 rounded-xl bg-[#22C55E] text-black font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#1eb053] transition-colors font-display"
-          >
-            <Check size={14} />
-            <span>Save Location</span>
-          </button>
-        </form>
-      )}
-
-      {/* Locations List */}
-      <div className="flex-1 overflow-y-auto space-y-2 py-3">
-        {isLoading && savedLocations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center text-[#A4A9AE] space-y-2">
-            <Loader2 size={32} className="animate-spin text-[#FFD400]" />
-            <p className="text-xs font-semibold text-[#F5F7F8]">Loading saved places...</p>
-          </div>
-        ) : savedLocations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center text-[#A4A9AE] space-y-2">
-            <Star size={36} className="text-[#6F757B]" />
-            <p className="text-xs font-semibold text-[#F5F7F8]">No saved locations yet</p>
-            <p className="text-[11px]">Add your Home, College, or Work for fast 1-tap navigation</p>
-          </div>
-        ) : (
-          savedLocations.map((poi) => {
-            const distance = calculateDistanceKm(poi.coordinate);
-            return (
-              <div
-                key={poi.id}
-                className="p-3.5 rounded-2xl bg-[#111315] hover:bg-[#191C1F] border border-[#2B2F33] transition-all flex items-center justify-between group"
+          <div className="flex shrink-0 items-center gap-2">
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isLoading}
+                aria-label="Refresh saved locations"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2B2F33] bg-[#111315] text-[#A4A9AE] transition-all hover:border-[#FFD400]/40 hover:bg-[#191C1F] hover:text-[#FFD400] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <div 
-                  onClick={() => {
-                    onSelectDestination(poi);
-                    onClose();
-                  }}
-                  className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
-                >
-                  <div className="p-2.5 rounded-xl bg-[#191C1F] group-hover:bg-[#FFD400]/20 flex-shrink-0 transition-colors">
-                    {getCategoryIcon(poi.category)}
-                  </div>
+                <RotateCw
+                  size={15}
+                  className={isLoading ? 'animate-spin' : ''}
+                />
+              </button>
+            )}
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-[#F5F7F8] group-hover:text-[#FFD400] truncate block transition-colors font-display">
-                        {poi.name}
-                      </span>
-                      <Star size={10} className="fill-[#FFD400] text-[#FFD400] flex-shrink-0" />
-                    </div>
-                    <span className="text-[11px] text-[#A4A9AE] truncate block mt-0.5">
-                      {poi.address}
-                    </span>
-                    <span className="text-[10px] text-[#22C55E] font-medium block mt-0.5">
-                      {distance} km away • Offline Ready
-                    </span>
-                  </div>
-                </div>
+            <button
+              type="button"
+              onClick={() => setIsAddingNew(!isAddingNew)}
+              className={[
+                'flex h-10 items-center gap-1.5 rounded-xl px-3 text-[10px] font-black uppercase tracking-wide transition-all active:scale-[0.97]',
+                isAddingNew
+                  ? 'border border-[#2B2F33] bg-[#191C1F] text-[#A4A9AE]'
+                  : 'bg-[#FFD400] text-black hover:bg-[#e6bf00]',
+              ].join(' ')}
+            >
+              {isAddingNew ? <X size={14} /> : <Plus size={15} />}
+              <span className="hidden sm:inline">
+                {isAddingNew ? 'Close' : 'Add Place'}
+              </span>
+            </button>
+          </div>
+        </div>
+      </header>
 
-                <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                  <button
-                    onClick={() => {
-                      onSelectDestination(poi);
-                      onClose();
-                    }}
-                    title="Navigate"
-                    className="p-2.5 rounded-xl bg-[#FFD400] hover:bg-[#e6bf00] text-black font-bold transition-all shadow-md"
-                  >
-                    <Navigation size={14} className="fill-black" />
-                  </button>
+      {/* Main content */}
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col overflow-hidden px-4">
+        {/* Error */}
+        {errorMessage && (
+          <div className="mt-3 flex items-start gap-3 rounded-2xl border border-[#EF4444]/25 bg-[#EF4444]/10 p-3">
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-[#EF4444]"
+            />
 
-                  <button
-                    onClick={() => onDeleteLocation(poi.id)}
-                    title="Delete Saved Place"
-                    className="p-2.5 rounded-xl bg-[#191C1F] hover:bg-[#EF4444]/20 text-[#A4A9AE] hover:text-[#EF4444] border border-[#2B2F33] transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            );
-          })
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[#FCA5A5]">
+                Sync error
+              </p>
+
+              <p className="mt-0.5 text-[11px] leading-relaxed text-[#A4A9AE]">
+                {errorMessage}
+              </p>
+            </div>
+
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-black text-[#FFD400] transition-colors hover:bg-[#FFD400]/10"
+              >
+                Retry
+              </button>
+            )}
+          </div>
         )}
-      </div>
+
+        {/* Add location form */}
+        {isAddingNew && (
+          <form
+            onSubmit={handleCreateLocation}
+            className="my-3 space-y-3 rounded-2xl border border-[#2B2F33] bg-[#111315] p-4 animate-in fade-in slide-in-from-top-2 duration-200"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black text-[#F5F7F8]">
+                  Add saved location
+                </p>
+
+                <p className="mt-0.5 text-[9px] text-[#6F757B]">
+                  Create a quick-access destination
+                </p>
+              </div>
+
+              <span className="rounded-full border border-[#2B2F33] bg-[#191C1F] px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-[#6F757B]">
+                New
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <input
+                type="text"
+                required
+                placeholder="Place name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="w-full rounded-xl border border-[#2B2F33] bg-[#191C1F] px-3 py-2.5 text-xs text-[#F5F7F8] outline-none placeholder:text-[#6F757B] transition-colors focus:border-[#FFD400]/70 focus:ring-2 focus:ring-[#FFD400]/10"
+              />
+
+              <input
+                type="text"
+                placeholder="Address / area"
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                className="w-full rounded-xl border border-[#2B2F33] bg-[#191C1F] px-3 py-2.5 text-xs text-[#F5F7F8] outline-none placeholder:text-[#6F757B] transition-colors focus:border-[#FFD400]/70 focus:ring-2 focus:ring-[#FFD400]/10"
+              />
+            </div>
+
+            <div>
+              <span className="mb-2 block text-[9px] font-black uppercase tracking-wider text-[#6F757B]">
+                Category
+              </span>
+
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {(
+                  ['work', 'college', 'home', 'fuel', 'hospital'] as const
+                ).map((cat) => {
+                  const selected = newCategory === cat;
+
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setNewCategory(cat)}
+                      className={[
+                        'shrink-0 rounded-lg px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide transition-all active:scale-95',
+                        selected
+                          ? 'bg-[#FFD400] text-black'
+                          : 'border border-[#2B2F33] bg-[#191C1F] text-[#A4A9AE] hover:border-[#FFD400]/30 hover:text-[#F5F7F8]',
+                      ].join(' ')}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#FFD400] py-2.5 text-xs font-black uppercase tracking-wide text-black transition-all hover:bg-[#e6bf00] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]/60"
+            >
+              <Check size={14} />
+              Save Location
+            </button>
+          </form>
+        )}
+
+        {/* Locations */}
+        <div className="flex-1 overflow-y-auto py-3 [scrollbar-width:thin]">
+          {isLoading && savedLocations.length === 0 ? (
+            <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#2B2F33] bg-[#111315]">
+                <Loader2
+                  size={22}
+                  className="animate-spin text-[#FFD400]"
+                />
+              </div>
+
+              <p className="mt-3 text-xs font-bold text-[#F5F7F8]">
+                Loading saved places
+              </p>
+
+              <p className="mt-1 text-[10px] text-[#6F757B]">
+                Syncing your destinations
+              </p>
+            </div>
+          ) : savedLocations.length === 0 ? (
+            <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#2B2F33] bg-[#111315]">
+                <Star size={25} className="text-[#6F757B]" />
+              </div>
+
+              <p className="mt-4 text-sm font-black text-[#F5F7F8]">
+                No saved locations
+              </p>
+
+              <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-[#6F757B]">
+                Save Home, College, Work, or any frequent destination for
+                faster navigation.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setIsAddingNew(true)}
+                className="mt-4 rounded-xl bg-[#FFD400] px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-black transition-all hover:bg-[#e6bf00] active:scale-95"
+              >
+                Add First Place
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {savedLocations.map((poi) => {
+                const distance = calculateDistanceKm(poi.coordinate);
+
+                return (
+                  <article
+                    key={poi.id}
+                    className="group rounded-2xl border border-[#2B2F33] bg-[#111315] p-3 transition-all duration-200 hover:border-[#3A3F44] hover:bg-[#191C1F]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectDestination(poi);
+                          onClose();
+                        }}
+                        aria-label={`Navigate to ${poi.name}`}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]/60 rounded-xl"
+                      >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#2B2F33] bg-[#191C1F] transition-colors group-hover:border-[#FFD400]/20 group-hover:bg-[#FFD400]/10">
+                          {getCategoryIcon(poi.category)}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate text-xs font-black text-[#F5F7F8]">
+                              {poi.name}
+                            </span>
+
+                            <Star
+                              size={10}
+                              className="shrink-0 fill-[#FFD400] text-[#FFD400]"
+                            />
+                          </div>
+
+                          <p className="mt-0.5 truncate text-[10px] text-[#6F757B]">
+                            {poi.address}
+                          </p>
+
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-[9px] font-bold text-[#A4A9AE]">
+                              {distance} km away
+                            </span>
+
+                            <span className="h-1 w-1 rounded-full bg-[#2B2F33]" />
+
+                            <span className="text-[9px] font-bold text-[#22C55E]">
+                              Offline ready
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelectDestination(poi);
+                            onClose();
+                          }}
+                          aria-label={`Start navigation to ${poi.name}`}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFD400] text-black transition-all hover:bg-[#e6bf00] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD400]/60"
+                        >
+                          <Navigation
+                            size={15}
+                            className="fill-black"
+                          />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onDeleteLocation(poi.id)}
+                          aria-label={`Delete ${poi.name}`}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2B2F33] bg-[#191C1F] text-[#6F757B] transition-all hover:border-[#EF4444]/30 hover:bg-[#EF4444]/10 hover:text-[#EF4444] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EF4444]/50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 };
+```

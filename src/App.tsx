@@ -1,11 +1,32 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from 'react';
+
 import { REGIONS } from './data/regions';
-import { Coordinates, MapRegion, POI, PositionState, BatteryState, AICommandResult } from './types';
+
+import {
+  Coordinates,
+  MapRegion,
+  POI,
+  PositionState,
+  BatteryState,
+  AICommandResult,
+} from './types';
+
+import {
+  NavigationController,
+  NavigationProgress,
+} from './engine/navigationController';
+
 import { PositionFusionManager } from './sensors/positionFusion';
-import { NavigationController, NavigationProgress } from './engine/navigationController';
 import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
+
 import { authService } from './services/supabase/authService';
 import { savedPlacesService } from './services/supabase/savedPlacesService';
 import { preferencesService } from './services/supabase/preferencesService';
@@ -29,136 +50,291 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { UltraNavOverlay } from './components/UltraNavOverlay';
 import { VoiceAIPanel } from './components/VoiceAIPanel';
 import { NavXEngineDrawer } from './components/NavXEngineDrawer';
-import { BottomNavBar, TabType } from './components/BottomNavBar';
+import {
+  BottomNavBar,
+  TabType,
+} from './components/BottomNavBar';
 import { AuthModal } from './components/AuthModal';
-import { 
-  Sparkles,
-  Zap
-} from 'lucide-react';
+
+import { Sparkles, Zap } from 'lucide-react';
 
 export const App: React.FC = () => {
-  // Main View State: default to 'app' for immediate navigation experience
-  const [viewMode, setViewMode] = useState<'app' | 'landing'>('app');
+  // =========================================================
+  // MAIN VIEW STATE
+  // =========================================================
 
-  // App Launch Splash State
-  const [showSplash, setShowSplash] = useState(false);
+  const [viewMode, setViewMode] =
+    useState<'app' | 'landing'>('app');
 
-  // Supabase Authentication & Cloud State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isSavedPlacesLoading, setIsSavedPlacesLoading] = useState(false);
-  const [savedPlacesError, setSavedPlacesError] = useState<string | null>(null);
+  const [showSplash, setShowSplash] =
+    useState(false);
 
-  // Region & Saved Places
-  const [activeRegion, setActiveRegion] = useState<MapRegion>(REGIONS[0]);
-  const [savedLocations, setSavedLocations] = useState<POI[]>(
-    REGIONS[0].pois.filter((p) => p.isSaved)
+  // =========================================================
+  // SUPABASE AUTHENTICATION & CLOUD STATE
+  // =========================================================
+
+  const [currentUser, setCurrentUser] =
+    useState<User | null>(null);
+
+  const [isAuthModalOpen, setIsAuthModalOpen] =
+    useState(false);
+
+  const [isSavedPlacesLoading, setIsSavedPlacesLoading] =
+    useState(false);
+
+  const [savedPlacesError, setSavedPlacesError] =
+    useState<string | null>(null);
+
+  // =========================================================
+  // REGION & SAVED LOCATIONS
+  // =========================================================
+
+  const [activeRegion, setActiveRegion] =
+    useState<MapRegion>(REGIONS[0]);
+
+  const [savedLocations, setSavedLocations] =
+    useState<POI[]>(
+      REGIONS[0].pois.filter(
+        (p) => p.isSaved
+      )
+    );
+
+  const [activeTab, setActiveTab] =
+    useState<TabType>('map');
+
+  // =========================================================
+  // INITIAL ORIGIN & DESTINATION
+  // =========================================================
+
+  const homePoi =
+    activeRegion.pois.find(
+      (p) => p.category === 'home'
+    ) || activeRegion.pois[0];
+
+  const collegePoi =
+    activeRegion.pois.find(
+      (p) => p.category === 'college'
+    ) || activeRegion.pois[1];
+
+  const [originCoord, setOriginCoord] =
+    useState<Coordinates>(
+      homePoi.coordinate
+    );
+
+  const [originName, setOriginName] =
+    useState<string>(
+      homePoi.name
+    );
+
+  const [selectedDestination, setSelectedDestination] =
+    useState<POI | null>(
+      collegePoi
+    );
+
+  const [detailedPoi, setDetailedPoi] =
+    useState<POI | null>(null);
+
+  // =========================================================
+  // POSITION FUSION
+  // =========================================================
+
+  const positionManager = useMemo(
+    () =>
+      new PositionFusionManager(
+        REGIONS[0].pois.find(
+          (p) => p.category === 'home'
+        )?.coordinate ||
+          REGIONS[0].pois[0].coordinate
+      ),
+    []
   );
 
-  // Active Bottom Tab
-  const [activeTab, setActiveTab] = useState<TabType>('map');
+  const [posState, setPosState] =
+    useState<PositionState>(
+      positionManager.getState()
+    );
 
-  // Initial Origin (Home) & Destination (College)
-  const homePoi = activeRegion.pois.find((p) => p.category === 'home') || activeRegion.pois[0];
-  const collegePoi = activeRegion.pois.find((p) => p.category === 'college') || activeRegion.pois[1];
+  // =========================================================
+  // ROUTE MANAGER
+  // =========================================================
 
-  const [originCoord, setOriginCoord] = useState<Coordinates>(homePoi.coordinate);
-  const [originName, setOriginName] = useState<string>(homePoi.name);
-  const [selectedDestination, setSelectedDestination] = useState<POI | null>(collegePoi);
-  const [detailedPoi, setDetailedPoi] = useState<POI | null>(null);
+  // Start ONLINE.
+  // Demo switches to offline at Step 6.
+  const routeManager = useMemo(
+    () => new RouteManager(false),
+    []
+  );
 
-  // Position Manager & Fusion Instance
-  const positionManager = useMemo(() => new PositionFusionManager(homePoi.coordinate), []);
-  const [posState, setPosState] = useState<PositionState>(positionManager.getState());
+  const [isOfflineForced, setIsOfflineForced] =
+    useState<boolean>(false);
 
-  // Route Manager Instance
-  const routeManager = useMemo(() => new RouteManager(true), []);
-  const [isOfflineForced, setIsOfflineForced] = useState<boolean>(true);
+  // =========================================================
+  // NAVIGATION CONTROLLER
+  // =========================================================
 
-  // Navigation Controller Instance
+  // Keep ONE NavigationController instance alive.
+  // Region changes are synchronized through setRegion().
   const navCtrl = useMemo(
-    () => new NavigationController(activeRegion, positionManager),
-    [activeRegion, positionManager]
+    () =>
+      new NavigationController(
+        activeRegion,
+        positionManager
+      ),
+    [positionManager]
   );
-  const [navProgress, setNavProgress] = useState<NavigationProgress>(navCtrl.getProgress());
 
-  // Battery Manager State
-  const [batteryState, setBatteryState] = useState<BatteryState>(batteryManager.getState());
-  const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(false);
+  const [navProgress, setNavProgress] =
+    useState<NavigationProgress>(
+      navCtrl.getProgress()
+    );
 
-  // Mobile Screen Overlays & Modals
-  const [isSearchScreenOpen, setIsSearchScreenOpen] = useState(false);
-  const [isSavedLocationsOpen, setIsSavedLocationsOpen] = useState(false);
-  const [isDownloadRegionOpen, setIsDownloadRegionOpen] = useState(false);
-  const [isSettingsScreenOpen, setIsSettingsScreenOpen] = useState(false);
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [isDestinationDetailsOpen, setIsDestinationDetailsOpen] = useState(false);
-  const [isEngineDrawerOpen, setIsEngineDrawerOpen] = useState(false);
-  const [isPhoneFrameView, setIsPhoneFrameView] = useState(true);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // =========================================================
+  // BATTERY & AUDIO
+  // =========================================================
 
-  // Toast Helper
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  }, []);
+  const [batteryState, setBatteryState] =
+    useState<BatteryState>(
+      batteryManager.getState()
+    );
 
-  // Sync Saved Places from Supabase
-  const loadCloudSavedPlaces = useCallback(async (user: User | null) => {
-    if (!user) {
-      // Revert to region default saved locations
-      setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
-      return;
-    }
+  const [isVoiceMuted, setIsVoiceMuted] =
+    useState<boolean>(false);
 
-    setIsSavedPlacesLoading(true);
-    setSavedPlacesError(null);
+  // =========================================================
+  // MODALS & OVERLAYS
+  // =========================================================
 
-    const { data, error } = await savedPlacesService.fetchSavedPlaces();
-    setIsSavedPlacesLoading(false);
+  const [isSearchScreenOpen, setIsSearchScreenOpen] =
+    useState(false);
 
-    if (error) {
-      setSavedPlacesError(error);
-      showToast(`Cloud Sync: ${error}`);
-    } else if (data) {
-      if (data.length > 0) {
-        // Convert Supabase rows to POI format
-        const cloudPois: POI[] = data.map((row) => ({
-          id: row.id,
-          name: row.name,
-          category: 'work',
-          coordinate: {
-            lat: Number(row.latitude),
-            lng: Number(row.longitude),
-          },
-          address: 'Supabase Cloud Saved Place',
-          regionId: activeRegion.id,
-          isSaved: true,
-        }));
+  const [isSavedLocationsOpen, setIsSavedLocationsOpen] =
+    useState(false);
 
-        setSavedLocations(cloudPois);
-        showToast(`Synced ${cloudPois.length} saved place(s) from Supabase`);
-      } else {
-        // Keep default places if cloud list is empty
-        setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
+  const [isDownloadRegionOpen, setIsDownloadRegionOpen] =
+    useState(false);
+
+  const [isSettingsScreenOpen, setIsSettingsScreenOpen] =
+    useState(false);
+
+  const [isVoiceModalOpen, setIsVoiceModalOpen] =
+    useState(false);
+
+  const [isDestinationDetailsOpen, setIsDestinationDetailsOpen] =
+    useState(false);
+
+  const [isEngineDrawerOpen, setIsEngineDrawerOpen] =
+    useState(false);
+
+  const [isPhoneFrameView, setIsPhoneFrameView] =
+    useState(true);
+
+  const [toastMessage, setToastMessage] =
+    useState<string | null>(null);
+
+  const toastTimeoutRef =
+    useRef<number | null>(null);
+
+  // =========================================================
+  // TOAST HELPER
+  // =========================================================
+
+  const showToast = useCallback(
+    (message: string) => {
+      if (
+        toastTimeoutRef.current !== null
+      ) {
+        clearTimeout(
+          toastTimeoutRef.current
+        );
+
+        toastTimeoutRef.current = null;
       }
-    }
-  }, [activeRegion, showToast]);
 
-  // Load Cloud Preferences
-  const loadCloudPreferences = useCallback(async (user: User | null) => {
-    if (!user) return;
-    const { data } = await preferencesService.fetchPreferences();
-    if (data) {
-      if (data.voice_enabled !== undefined) {
+      setToastMessage(message);
+
+      toastTimeoutRef.current =
+        window.setTimeout(() => {
+          setToastMessage(null);
+          toastTimeoutRef.current = null;
+        }, 3500);
+    },
+    []
+  );
+
+  // =========================================================
+  // SUPABASE CLOUD SYNC HELPERS
+  // =========================================================
+
+  const loadCloudSavedPlaces = useCallback(
+    async (user: User | null) => {
+      if (!user) {
+        setSavedLocations(
+          activeRegion.pois.filter(
+            (p) => p.isSaved
+          )
+        );
+        return;
+      }
+
+      setIsSavedPlacesLoading(true);
+      setSavedPlacesError(null);
+
+      const { data, error } =
+        await savedPlacesService.fetchSavedPlaces();
+
+      setIsSavedPlacesLoading(false);
+
+      if (error) {
+        setSavedPlacesError(error);
+        showToast(`Cloud Sync: ${error}`);
+      } else if (data) {
+        if (data.length > 0) {
+          const cloudPois: POI[] = data.map((row) => ({
+            id: row.id,
+            name: row.name,
+            category: 'work',
+            coordinate: {
+              lat: Number(row.latitude),
+              lng: Number(row.longitude),
+            },
+            address: 'Supabase Cloud Saved Place',
+            regionId: activeRegion.id,
+            isSaved: true,
+          }));
+
+          setSavedLocations(cloudPois);
+          showToast(`Synced ${cloudPois.length} saved place(s) from Supabase`);
+        } else {
+          setSavedLocations(
+            activeRegion.pois.filter(
+              (p) => p.isSaved
+            )
+          );
+        }
+      }
+    },
+    [activeRegion, showToast]
+  );
+
+  const loadCloudPreferences = useCallback(
+    async (user: User | null) => {
+      if (!user) return;
+      const { data } =
+        await preferencesService.fetchPreferences();
+
+      if (data && data.voice_enabled !== undefined) {
         const muted = !data.voice_enabled;
         setIsVoiceMuted(muted);
         voiceEngine.setMuted(muted);
       }
-    }
-  }, []);
+    },
+    []
+  );
 
-  // Initialize Supabase Auth Session
+  // =========================================================
+  // SUPABASE AUTH INITIALIZATION & SUBSCRIPTION
+  // =========================================================
+
   useEffect(() => {
     authService.getCurrentUser().then((user) => {
       setCurrentUser(user);
@@ -168,32 +344,51 @@ export const App: React.FC = () => {
       }
     });
 
-    const { data: authListener } = authService.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      setCurrentUser(user);
-      if (user) {
-        loadCloudSavedPlaces(user);
-        loadCloudPreferences(user);
+    const { data: authListener } = authService.onAuthStateChange(
+      (_event, session) => {
+        const user = session?.user ?? null;
+        setCurrentUser(user);
+        if (user) {
+          loadCloudSavedPlaces(user);
+          loadCloudPreferences(user);
+        }
       }
-    });
+    );
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
   }, [loadCloudSavedPlaces, loadCloudPreferences]);
 
-  // Subscriptions to Reactive Engines
+  // =========================================================
+  // SUBSCRIPTIONS
+  // =========================================================
+
   useEffect(() => {
-    const unsubPos = positionManager.subscribe((st) => setPosState(st));
-    const unsubNav = navCtrl.subscribe((pr) => setNavProgress(pr));
-    const unsubBat = batteryManager.subscribe((bt) => {
-      setBatteryState(bt);
-      if (bt.isUltraMode) {
-        document.body.classList.add('ultra-mode');
-      } else {
-        document.body.classList.remove('ultra-mode');
-      }
-    });
+    const unsubPos =
+      positionManager.subscribe((state) => {
+        setPosState(state);
+      });
+
+    const unsubNav =
+      navCtrl.subscribe((progress) => {
+        setNavProgress(progress);
+      });
+
+    const unsubBat =
+      batteryManager.subscribe((battery) => {
+        setBatteryState(battery);
+
+        if (battery.isUltraMode) {
+          document.body.classList.add(
+            'ultra-mode'
+          );
+        } else {
+          document.body.classList.remove(
+            'ultra-mode'
+          );
+        }
+      });
 
     return () => {
       unsubPos();
@@ -202,112 +397,200 @@ export const App: React.FC = () => {
     };
   }, [positionManager, navCtrl]);
 
-  // Sync region changes
+  useEffect(() => {
+    return () => {
+      positionManager.destroy();
+    };
+  }, [positionManager]);
+
+  useEffect(() => {
+    return () => {
+      if (
+        toastTimeoutRef.current !== null
+      ) {
+        clearTimeout(
+          toastTimeoutRef.current
+        );
+
+        toastTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // =========================================================
+  // REGION SYNC
+  // =========================================================
+
   useEffect(() => {
     navCtrl.setRegion(activeRegion);
+
     if (!currentUser) {
-      setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
+      setSavedLocations(
+        activeRegion.pois.filter(
+          (p) => p.isSaved
+        )
+      );
     }
-    const newHome = activeRegion.pois.find((p) => p.category === 'home') || activeRegion.pois[0];
-    const newDest = activeRegion.pois.find((p) => p.category === 'college') || activeRegion.pois[1];
+
+    const newHome =
+      activeRegion.pois.find(
+        (p) => p.category === 'home'
+      ) || activeRegion.pois[0];
+
+    const newDest =
+      activeRegion.pois.find(
+        (p) => p.category === 'college'
+      ) || activeRegion.pois[1];
+
     setOriginCoord(newHome.coordinate);
     setOriginName(newHome.name);
     setSelectedDestination(newDest);
   }, [activeRegion, navCtrl, currentUser]);
 
-  // Launch App from Landing Page
+  // =========================================================
+  // HANDLERS
+  // =========================================================
+
   const handleLaunchApp = () => {
     setShowSplash(true);
     setViewMode('app');
   };
 
-  // Calculate Route Handler
-  const handleCalculateRoute = async (dest: POI) => {
-    setSelectedDestination(dest);
-    const result = await routeManager.calculateRoute(
-      originCoord,
-      originName,
-      dest.coordinate,
-      dest.name,
-      activeRegion
-    );
+  const handleCalculateRoute =
+    async (destination: POI) => {
+      setSelectedDestination(destination);
 
-    if (result) {
-      navCtrl.startPreview(result.route);
-      showToast(
-        result.source === 'offline'
-          ? `Calculated offline graph route: ${(result.route.totalDistanceMeters / 1000).toFixed(1)} km`
-          : `Calculated online route: ${(result.route.totalDistanceMeters / 1000).toFixed(1)} km`
-      );
-
-      // Record recent route if user is signed in
-      if (currentUser) {
-        recentRoutesService.recordRecentRoute(
-          dest.name,
-          result.route.totalDistanceMeters,
-          result.route.totalDurationSeconds
+      const result =
+        await routeManager.calculateRoute(
+          originCoord,
+          originName,
+          destination.coordinate,
+          destination.name,
+          activeRegion
         );
-      }
-    } else {
-      showToast('Could not calculate route for this destination.');
-    }
-  };
 
-  // Start Active Turn-by-Turn Navigation
-  const handleStartNavigation = async () => {
-    if (!navProgress.activeRoute && selectedDestination) {
-      const result = await routeManager.calculateRoute(
-        originCoord,
-        originName,
-        selectedDestination.coordinate,
-        selectedDestination.name,
-        activeRegion
-      );
       if (result) {
-        navCtrl.startNavigation(result.route);
+        navCtrl.startPreview(result.route);
+
+        showToast(
+          result.source === 'offline'
+            ? `Calculated offline graph route: ${(
+                result.route
+                  .totalDistanceMeters /
+                1000
+              ).toFixed(1)} km`
+            : `Calculated online route: ${(
+                result.route
+                  .totalDistanceMeters /
+                1000
+              ).toFixed(1)} km`
+        );
+
         if (currentUser) {
           recentRoutesService.recordRecentRoute(
-            selectedDestination.name,
+            destination.name,
             result.route.totalDistanceMeters,
             result.route.totalDurationSeconds
           );
         }
-      }
-    } else if (navProgress.activeRoute) {
-      navCtrl.startNavigation();
-      if (currentUser && selectedDestination) {
-        recentRoutesService.recordRecentRoute(
-          selectedDestination.name,
-          navProgress.activeRoute.totalDistanceMeters,
-          navProgress.activeRoute.totalDurationSeconds
+      } else {
+        showToast(
+          'Could not calculate route for this destination.'
         );
       }
-    }
-  };
+    };
 
-  // Handle AI Command Execution
-  const handleExecuteAICommand = (result: AICommandResult) => {
-    setIsVoiceModalOpen(false);
-    if (result.intent === 'STOP_NAV') {
-      navCtrl.stopNavigation();
-      showToast('Navigation stopped via voice command');
-    } else if (result.intent === 'REROUTE') {
-      navCtrl.simulateMissedTurn();
-      showToast('Offline reroute triggered via voice command');
-    } else if (result.intent === 'NAVIGATE' || result.intent === 'GO_HOME' || result.intent === 'GO_SAVED') {
-      if (result.matchedPOI) {
-        handleCalculateRoute(result.matchedPOI);
-        setTimeout(() => navCtrl.startNavigation(), 600);
-      } else if (selectedDestination) {
-        handleCalculateRoute(selectedDestination);
-        setTimeout(() => navCtrl.startNavigation(), 600);
+  const handleStartNavigation =
+    async () => {
+      if (
+        !navProgress.activeRoute &&
+        selectedDestination
+      ) {
+        const result =
+          await routeManager.calculateRoute(
+            originCoord,
+            originName,
+            selectedDestination.coordinate,
+            selectedDestination.name,
+            activeRegion
+          );
+
+        if (result) {
+          navCtrl.startNavigation(
+            result.route
+          );
+
+          if (currentUser) {
+            recentRoutesService.recordRecentRoute(
+              selectedDestination.name,
+              result.route.totalDistanceMeters,
+              result.route.totalDurationSeconds
+            );
+          }
+        }
+      } else if (
+        navProgress.activeRoute
+      ) {
+        navCtrl.startNavigation();
+
+        if (currentUser && selectedDestination) {
+          recentRoutesService.recordRecentRoute(
+            selectedDestination.name,
+            navProgress.activeRoute.totalDistanceMeters,
+            navProgress.activeRoute.totalDurationSeconds
+          );
+        }
       }
-    }
-  };
+    };
 
-  // Tab Navigation Router
-  const handleSelectTab = (tab: TabType) => {
+  const handleExecuteAICommand =
+    (result: AICommandResult) => {
+      setIsVoiceModalOpen(false);
+
+      if (result.intent === 'STOP_NAV') {
+        navCtrl.stopNavigation();
+        showToast(
+          'Navigation stopped via voice command'
+        );
+      } else if (
+        result.intent === 'REROUTE'
+      ) {
+        navCtrl.simulateMissedTurn();
+        showToast(
+          'Offline reroute triggered via voice command'
+        );
+      } else if (
+        result.intent === 'NAVIGATE' ||
+        result.intent === 'GO_HOME' ||
+        result.intent === 'GO_SAVED'
+      ) {
+        if (result.matchedPOI) {
+          handleCalculateRoute(
+            result.matchedPOI
+          );
+
+          window.setTimeout(() => {
+            navCtrl.startNavigation();
+          }, 600);
+        } else if (
+          selectedDestination
+        ) {
+          handleCalculateRoute(
+            selectedDestination
+          );
+
+          window.setTimeout(() => {
+            navCtrl.startNavigation();
+          }, 600);
+        }
+      }
+    };
+
+  const handleSelectTab = (
+    tab: TabType
+  ) => {
     setActiveTab(tab);
+
     if (tab === 'saved') {
       setIsSavedLocationsOpen(true);
     } else if (tab === 'regions') {
@@ -317,12 +600,9 @@ export const App: React.FC = () => {
     }
   };
 
-  // Add / Save Place Handler (Cloud + Local)
   const handleAddSavedLocation = async (newPoi: POI) => {
-    // 1. Optimistic Local State Update
     setSavedLocations((prev) => [newPoi, ...prev]);
 
-    // 2. Cloud Supabase Sync (if authenticated)
     if (currentUser) {
       const { data, error } = await savedPlacesService.createSavedPlace(
         newPoi.name,
@@ -333,7 +613,6 @@ export const App: React.FC = () => {
       if (error) {
         showToast(`Saved locally (Cloud sync failed: ${error})`);
       } else if (data) {
-        // Update local item with real Supabase generated ID
         setSavedLocations((prev) =>
           prev.map((p) => (p.id === newPoi.id ? { ...p, id: data.id } : p))
         );
@@ -344,12 +623,9 @@ export const App: React.FC = () => {
     }
   };
 
-  // Delete Place Handler (Cloud + Local)
   const handleDeleteSavedLocation = async (id: string) => {
-    // 1. Local State Update
     setSavedLocations((prev) => prev.filter((p) => p.id !== id));
 
-    // 2. Cloud Supabase Delete (if authenticated)
     if (currentUser) {
       const { error } = await savedPlacesService.deleteSavedPlace(id);
       if (error) {
@@ -362,11 +638,15 @@ export const App: React.FC = () => {
     }
   };
 
-  // Toggle Saved POI
   const handleToggleSavePOI = (poi: POI) => {
-    const exists = savedLocations.some((p) => p.id === poi.id || p.name === poi.name);
+    const exists = savedLocations.some(
+      (p) => p.id === poi.id || p.name === poi.name
+    );
+
     if (exists) {
-      const existing = savedLocations.find((p) => p.id === poi.id || p.name === poi.name);
+      const existing = savedLocations.find(
+        (p) => p.id === poi.id || p.name === poi.name
+      );
       if (existing) {
         handleDeleteSavedLocation(existing.id);
       }
@@ -375,259 +655,492 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handle Preference Update
-  const handleUpdatePreferences = async (prefs: { voice_enabled?: boolean; dark_mode?: boolean }) => {
+  const handleUpdatePreferences = async (prefs: {
+    voice_enabled?: boolean;
+    dark_mode?: boolean;
+  }) => {
     if (currentUser) {
       await preferencesService.savePreferences(prefs);
     }
   };
 
-  // Simulation Scenario Dispatcher
-  const handleRunDemoStep = (stepNumber: number) => {
+  // =========================================================
+  // DEMO DISPATCHER
+  // =========================================================
+
+  const handleRunDemoStep = (
+    stepNumber: number
+  ) => {
     switch (stepNumber) {
       case 1:
         setShowSplash(true);
         break;
+
       case 2:
         setIsDownloadRegionOpen(true);
-        showToast('Step 2: Viewing Regional Offline Map Packages');
+        showToast(
+          'Step 2: Viewing Regional Offline Map Packages'
+        );
         break;
+
       case 3:
         if (collegePoi) {
-          setSelectedDestination(collegePoi);
+          setSelectedDestination(
+            collegePoi
+          );
           setDetailedPoi(collegePoi);
-          setIsDestinationDetailsOpen(true);
+          setIsDestinationDetailsOpen(
+            true
+          );
         }
-        showToast('Step 3: Selected Destination (College)');
+        showToast(
+          'Step 3: Selected Destination (College)'
+        );
         break;
+
       case 4:
-        if (collegePoi) handleCalculateRoute(collegePoi);
-        showToast('Step 4: Calculated Offline Graph Route');
+        if (collegePoi) {
+          handleCalculateRoute(
+            collegePoi
+          );
+        }
+        showToast(
+          'Step 4: Calculated Route'
+        );
         break;
+
       case 5:
         handleStartNavigation();
-        showToast('Step 5: Started Turn-by-Turn Navigation');
+        showToast(
+          'Step 5: Started Turn-by-Turn Navigation'
+        );
         break;
+
       case 6:
       case 7:
         setIsOfflineForced(true);
-        routeManager.setOfflineSimulation(true);
-        showToast('Step 6 & 7: Internet Disabled — Offline Navigation Active');
+        routeManager.setOfflineSimulation(
+          true
+        );
+        showToast(
+          'Step 6 & 7: Internet Disabled — Offline Navigation Active'
+        );
         break;
+
       case 9:
       case 10:
-        positionManager.setGpsQuality('weak');
-        showToast('Step 9 & 10: GPS Weak — 6-DOF Sensor Dead Reckoning Active');
+        positionManager.setGpsQuality(
+          'weak'
+        );
+        showToast(
+          'Step 9 & 10: GPS Weak — 6-DOF Sensor Dead Reckoning Active'
+        );
         break;
+
       case 11:
       case 12:
         navCtrl.simulateMissedTurn();
-        showToast('Step 11 & 12: Missed Turn Detected — Instant Offline Reroute');
+        showToast(
+          'Step 11 & 12: Missed Turn Detected — Instant Offline Reroute'
+        );
         break;
+
       case 13:
       case 14:
-        positionManager.setGpsQuality('strong');
-        showToast('Step 13 & 14: Restored GPS — Position Corrected Smoothly');
+        positionManager.setGpsQuality(
+          'strong'
+        );
+        showToast(
+          'Step 13 & 14: Restored GPS — Position Corrected Smoothly'
+        );
         break;
+
       case 15:
         setIsVoiceModalOpen(true);
-        showToast('Step 15: AI Voice Navigation Engine Ready');
+        showToast(
+          'Step 15: AI Voice Navigation Engine Ready'
+        );
         break;
+
       case 17:
-        showToast('Step 17: Origin Island Live Status Component Active');
+        showToast(
+          'Step 17: Origin Island Live Status Component Active'
+        );
         break;
+
       case 18:
       case 19:
-        batteryManager.toggleUltraMode(true);
-        showToast('Step 18 & 19: Low Battery — Ultra Navigation Mode Active');
+        batteryManager.toggleUltraMode(
+          true
+        );
+        showToast(
+          'Step 18 & 19: Low Battery — Ultra Navigation Mode Active'
+        );
         break;
+
       default:
         break;
     }
   };
 
-  const isNavigating = navProgress.status === 'navigating' || navProgress.status === 'rerouting';
-  const isPreviewing = navProgress.status === 'previewing' && navProgress.activeRoute !== null;
-  const isIdle = navProgress.status === 'idle';
+  // =========================================================
+  // DERIVED STATE
+  // =========================================================
 
-  // If user explicitly switched to 'landing' overview
+  const isNavigating =
+    navProgress.status ===
+      'navigating' ||
+    navProgress.status === 'rerouting';
+
+  const isPreviewing =
+    navProgress.status ===
+      'previewing' &&
+    navProgress.activeRoute !== null;
+
+  const isIdle =
+    navProgress.status === 'idle';
+
+  // =========================================================
+  // RENDER: LANDING PAGE
+  // =========================================================
+
   if (viewMode === 'landing') {
-    return <LandingPage onLaunchApp={handleLaunchApp} />;
+    return (
+      <LandingPage
+        onLaunchApp={handleLaunchApp}
+      />
+    );
   }
+
+  // =========================================================
+  // RENDER: MAIN APPLICATION
+  // =========================================================
 
   return (
     <div className="min-h-screen bg-[#08090A] text-[#F5F7F8] flex flex-col items-center justify-start relative overflow-x-hidden font-sans">
       {/* 1. App Launch Splash Screen */}
       {showSplash && (
-        <SplashScreen onComplete={() => setShowSplash(false)} />
+        <SplashScreen
+          onComplete={() =>
+            setShowSplash(false)
+          }
+        />
       )}
 
-      {/* Reusable Application Header Shell */}
+      {/* Header */}
       <NavigationHeader
         isNavigating={isNavigating}
         isOffline={isOfflineForced}
         posState={posState}
         batteryState={batteryState}
         currentUser={currentUser}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onBackOrStopNav={() => navCtrl.stopNavigation()}
-        onToggleViewMode={() => setViewMode('landing')}
-        isPhoneFrameView={isPhoneFrameView}
-        onTogglePhoneFrame={() => setIsPhoneFrameView(!isPhoneFrameView)}
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
+        }
+        onBackOrStopNav={() =>
+          navCtrl.stopNavigation()
+        }
+        onToggleViewMode={() =>
+          setViewMode('landing')
+        }
+        isPhoneFrameView={
+          isPhoneFrameView
+        }
+        onTogglePhoneFrame={() =>
+          setIsPhoneFrameView(
+            !isPhoneFrameView
+          )
+        }
       />
 
-      {/* Main Content Container: Mobile-First Viewport */}
-      <main className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
-        isPhoneFrameView ? 'max-w-md' : 'max-w-6xl'
-      }`}>
-        <div className={`w-full flex-1 flex flex-col bg-[#08090A] sm:rounded-3xl border border-[#2B2F33] shadow-2xl relative overflow-hidden ${
-          isPhoneFrameView ? 'min-h-[820px] max-h-[880px]' : 'min-h-[720px]'
-        }`}>
-          {/* 1. Origin Island floating status component */}
+      {/* Main Content */}
+      <main
+        className={`w-full flex-1 flex flex-col items-center justify-start p-0 sm:py-2 transition-all ${
+          isPhoneFrameView
+            ? 'max-w-md'
+            : 'max-w-6xl'
+        }`}
+      >
+        <div
+          className={`w-full flex-1 flex flex-col bg-[#08090A] sm:rounded-3xl border border-[#2B2F33] shadow-2xl relative overflow-hidden ${
+            isPhoneFrameView
+              ? 'min-h-[820px] max-h-[880px]'
+              : 'min-h-[720px]'
+          }`}
+        >
+          {/* Origin Island */}
           <OriginIsland
             navProgress={navProgress}
             posState={posState}
             batteryState={batteryState}
             isOffline={isOfflineForced}
-            onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+            onToggleUltraMode={() =>
+              batteryManager.toggleUltraMode()
+            }
           />
 
-          {/* 2. Top Turn Guidance HUD (When Navigating) */}
+          {/* Turn Guidance HUD */}
           <TurnGuidanceHUD
             progress={navProgress}
             posState={posState}
-            activeRoute={navProgress.activeRoute}
+            activeRoute={
+              navProgress.activeRoute
+            }
             isMuted={isVoiceMuted}
             isOffline={isOfflineForced}
             onToggleMute={() => {
-              const muted = !isVoiceMuted;
+              const muted =
+                !isVoiceMuted;
+
               setIsVoiceMuted(muted);
-              voiceEngine.setMuted(muted);
-              handleUpdatePreferences({ voice_enabled: !muted });
+              voiceEngine.setMuted(
+                muted
+              );
+              handleUpdatePreferences({
+                voice_enabled: !muted,
+              });
             }}
-            onStopNav={() => navCtrl.stopNavigation()}
-            onReroute={() => navCtrl.simulateMissedTurn()}
-            onOpenVoice={() => setIsVoiceModalOpen(true)}
+            onStopNav={() =>
+              navCtrl.stopNavigation()
+            }
+            onReroute={() =>
+              navCtrl.simulateMissedTurn()
+            }
+            onOpenVoice={() =>
+              setIsVoiceModalOpen(true)
+            }
           />
 
-          {/* 3. Interactive Map View (Dominating Viewport) */}
+          {/* Interactive Map */}
           <div className="flex-1 w-full relative min-h-[420px]">
             <MapView
-              currentPosition={posState.currentPosition}
+              currentPosition={
+                posState.currentPosition
+              }
               positionState={posState}
-              activeRoute={navProgress.activeRoute}
-              activeRegion={activeRegion}
-              savedLocations={savedLocations}
-              isUltraMode={batteryState.isUltraMode}
+              activeRoute={
+                navProgress.activeRoute
+              }
+              activeRegion={
+                activeRegion
+              }
+              savedLocations={
+                savedLocations
+              }
+              isUltraMode={
+                batteryState.isUltraMode
+              }
               onSelectPOI={(poi) => {
                 setDetailedPoi(poi);
-                setIsDestinationDetailsOpen(true);
+                setIsDestinationDetailsOpen(
+                  true
+                );
               }}
             />
 
-            {/* 4. Home Screen Overlay (When Idle: floating search & quick chips) */}
+            {/* Home Screen Overlay */}
             {isIdle && (
               <HomeScreenOverlay
-                activeRegion={activeRegion}
-                savedLocations={savedLocations}
+                activeRegion={
+                  activeRegion
+                }
+                savedLocations={
+                  savedLocations
+                }
                 posState={posState}
-                batteryState={batteryState}
-                isOffline={isOfflineForced}
-                onOpenSearch={() => setIsSearchScreenOpen(true)}
-                onOpenVoice={() => setIsVoiceModalOpen(true)}
-                onOpenSavedLocations={() => setIsSavedLocationsOpen(true)}
-                onOpenDownloadRegion={() => setIsDownloadRegionOpen(true)}
-                onSelectDestination={(poi) => {
+                batteryState={
+                  batteryState
+                }
+                isOffline={
+                  isOfflineForced
+                }
+                onOpenSearch={() =>
+                  setIsSearchScreenOpen(
+                    true
+                  )
+                }
+                onOpenVoice={() =>
+                  setIsVoiceModalOpen(
+                    true
+                  )
+                }
+                onOpenSavedLocations={() =>
+                  setIsSavedLocationsOpen(
+                    true
+                  )
+                }
+                onOpenDownloadRegion={() =>
+                  setIsDownloadRegionOpen(
+                    true
+                  )
+                }
+                onSelectDestination={(
+                  poi
+                ) => {
                   setDetailedPoi(poi);
-                  setIsDestinationDetailsOpen(true);
+                  setIsDestinationDetailsOpen(
+                    true
+                  );
                 }}
-                onOpenEngineDrawer={() => setIsEngineDrawerOpen(true)}
+                onOpenEngineDrawer={() =>
+                  setIsEngineDrawerOpen(
+                    true
+                  )
+                }
               />
             )}
 
-            {/* Float Route Context Card if Navigating */}
-            {isNavigating && navProgress.activeRoute && (
-              <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
-                <RouteContextCard context={navProgress.activeRoute.context} />
-              </div>
-            )}
+            {/* Route Context Card */}
+            {isNavigating &&
+              navProgress.activeRoute && (
+                <div className="absolute bottom-3 left-0 right-0 z-30 pointer-events-none">
+                  <RouteContextCard
+                    context={
+                      navProgress
+                        .activeRoute
+                        .context
+                    }
+                  />
+                </div>
+              )}
           </div>
 
-          {/* 5. Route Preview Screen (When Previewing Route) */}
-          {isPreviewing && navProgress.activeRoute && (
-            <RoutePreviewCard
-              route={navProgress.activeRoute}
-              onStartNavigation={handleStartNavigation}
-              onCancel={() => navCtrl.stopNavigation()}
-            />
-          )}
+          {/* Route Preview Card */}
+          {isPreviewing &&
+            navProgress.activeRoute && (
+              <RoutePreviewCard
+                route={
+                  navProgress.activeRoute
+                }
+                onStartNavigation={
+                  handleStartNavigation
+                }
+                onCancel={() =>
+                  navCtrl.stopNavigation()
+                }
+              />
+            )}
 
-          {/* 6. Battery Warning Banner (< 20%) */}
-          {batteryState.isLowBattery && !batteryState.isUltraMode && (
-            <div className="mx-4 my-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-500/40 text-amber-200 flex items-center justify-between z-30 select-none">
-              <div className="flex items-center gap-2">
-                <Zap size={16} className="text-[#FFD400] animate-pulse" />
-                <span className="text-xs font-semibold">
-                  Battery low ({Math.round(batteryState.level * 100)}%) — Ultra Navigation Mode recommended
-                </span>
+          {/* Low Battery Warning */}
+          {batteryState.isLowBattery &&
+            !batteryState.isUltraMode && (
+              <div className="mx-4 my-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-500/40 text-amber-200 flex items-center justify-between z-30 select-none">
+                <div className="flex items-center gap-2">
+                  <Zap
+                    size={16}
+                    className="text-[#FFD400] animate-pulse"
+                  />
+                  <span className="text-xs font-semibold">
+                    Battery low (
+                    {Math.round(
+                      batteryState.level *
+                        100
+                    )}
+                    %) — Ultra Navigation
+                    Mode recommended
+                  </span>
+                </div>
+                <button
+                  onClick={() =>
+                    batteryManager.toggleUltraMode(
+                      true
+                    )
+                  }
+                  className="px-3 py-1 rounded-xl bg-[#FFD400] text-black font-extrabold text-xs hover:bg-[#e6bf00] transition-colors font-display"
+                >
+                  Enable
+                </button>
               </div>
-              <button
-                onClick={() => batteryManager.toggleUltraMode(true)}
-                className="px-3 py-1 rounded-xl bg-[#FFD400] text-black font-extrabold text-xs hover:bg-[#e6bf00] transition-colors font-display"
-              >
-                Enable
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* 7. Bottom Navigation Bar */}
+          {/* Bottom Bar */}
           <BottomNavBar
             activeTab={activeTab}
-            onChangeTab={handleSelectTab}
-            isNavigating={isNavigating}
+            onChangeTab={
+              handleSelectTab
+            }
+            isNavigating={
+              isNavigating
+            }
           />
 
-          {/* Toast Notification Banner */}
+          {/* Toast Notification */}
           {toastMessage && (
             <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#FFD400] text-black font-extrabold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 font-display">
               <Sparkles size={14} />
-              <span>{toastMessage}</span>
+              <span>
+                {toastMessage}
+              </span>
             </div>
           )}
 
-          {/* Ultra Navigation Mode Minimalist Overlay */}
+          {/* Ultra Navigation Overlay */}
           {batteryState.isUltraMode && (
             <UltraNavOverlay
-              navProgress={navProgress}
+              navProgress={
+                navProgress
+              }
               posState={posState}
-              batteryState={batteryState}
-              isVoiceMuted={isVoiceMuted}
+              batteryState={
+                batteryState
+              }
+              isVoiceMuted={
+                isVoiceMuted
+              }
               onToggleMute={() => {
-                const muted = !isVoiceMuted;
+                const muted =
+                  !isVoiceMuted;
+
                 setIsVoiceMuted(muted);
-                voiceEngine.setMuted(muted);
-                handleUpdatePreferences({ voice_enabled: !muted });
+                voiceEngine.setMuted(
+                  muted
+                );
+                handleUpdatePreferences({
+                  voice_enabled: !muted,
+                });
               }}
-              onExitUltraMode={() => batteryManager.toggleUltraMode(false)}
+              onExitUltraMode={() =>
+                batteryManager.toggleUltraMode(
+                  false
+                )
+              }
             />
           )}
         </div>
       </main>
 
-      {/* NavX Technology & Simulation Drawer */}
+      {/* NavX Engine Drawer */}
       <NavXEngineDrawer
         isOpen={isEngineDrawerOpen}
-        onClose={() => setIsEngineDrawerOpen(false)}
+        onClose={() =>
+          setIsEngineDrawerOpen(false)
+        }
         isOffline={isOfflineForced}
         onToggleInternet={() => {
-          const nextState = !isOfflineForced;
-          setIsOfflineForced(nextState);
-          routeManager.setOfflineSimulation(nextState);
-          showToast(nextState ? 'Simulating Offline Mode (No Internet)' : 'Simulating Online Mode');
+          const nextState =
+            !isOfflineForced;
+
+          setIsOfflineForced(
+            nextState
+          );
+
+          routeManager.setOfflineSimulation(
+            nextState
+          );
+
+          showToast(
+            nextState
+              ? 'Simulating Offline Mode (No Internet)'
+              : 'Simulating Online Mode'
+          );
         }}
         posState={posState}
         onSetGpsQuality={(quality) => {
-          positionManager.setGpsQuality(quality, collegePoi.coordinate);
+          positionManager.setGpsQuality(
+            quality,
+            collegePoi.coordinate
+          );
+
           showToast(
             quality === 'weak'
               ? 'GPS Weak — Position Fusion switched to IMU Dead Reckoning'
@@ -636,109 +1149,179 @@ export const App: React.FC = () => {
         }}
         onSimulateMissedTurn={() => {
           navCtrl.simulateMissedTurn();
-          showToast('Missed turn simulated! Calculating offline alternative route...');
+          showToast(
+            'Missed turn simulated! Calculating offline alternative route...'
+          );
         }}
         batteryState={batteryState}
-        onSetBatteryLevel={(lvl) => batteryManager.setSimulatedBatteryLevel(lvl)}
-        onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+        onSetBatteryLevel={(lvl) =>
+          batteryManager.setSimulatedBatteryLevel(
+            lvl
+          )
+        }
+        onToggleUltraMode={() =>
+          batteryManager.toggleUltraMode()
+        }
         navProgress={navProgress}
-        onRunAutoDemoStep={(step) => handleRunDemoStep(step)}
+        onRunAutoDemoStep={(step) =>
+          handleRunDemoStep(step)
+        }
       />
 
-      {/* Mobile Screens & Modals */}
+      {/* Overlays & Modals */}
       <SearchScreen
         isOpen={isSearchScreenOpen}
-        onClose={() => setIsSearchScreenOpen(false)}
+        onClose={() =>
+          setIsSearchScreenOpen(false)
+        }
         activeRegion={activeRegion}
-        currentCoord={posState.currentPosition}
+        currentCoord={
+          posState.currentPosition
+        }
         savedLocations={savedLocations}
         onSelectDestination={(poi) => {
           setIsSearchScreenOpen(false);
           setDetailedPoi(poi);
-          setIsDestinationDetailsOpen(true);
+          setIsDestinationDetailsOpen(
+            true
+          );
         }}
-        onOpenVoice={() => setIsVoiceModalOpen(true)}
+        onOpenVoice={() =>
+          setIsVoiceModalOpen(true)
+        }
       />
 
       <DestinationDetailsModal
-        isOpen={isDestinationDetailsOpen}
+        isOpen={
+          isDestinationDetailsOpen
+        }
         poi={detailedPoi}
-        onClose={() => setIsDestinationDetailsOpen(false)}
-        currentCoord={posState.currentPosition}
+        onClose={() =>
+          setIsDestinationDetailsOpen(
+            false
+          )
+        }
+        currentCoord={
+          posState.currentPosition
+        }
         onStartRoute={(poi) => {
-          setIsDestinationDetailsOpen(false);
+          setIsDestinationDetailsOpen(
+            false
+          );
           handleCalculateRoute(poi);
         }}
         onToggleSave={handleToggleSavePOI}
-        onOpenVoice={() => setIsVoiceModalOpen(true)}
+        onOpenVoice={() =>
+          setIsVoiceModalOpen(true)
+        }
       />
 
       <SavedLocationsScreen
         isOpen={isSavedLocationsOpen}
         onClose={() => {
-          setIsSavedLocationsOpen(false);
+          setIsSavedLocationsOpen(
+            false
+          );
           setActiveTab('map');
         }}
         savedLocations={savedLocations}
-        currentCoord={posState.currentPosition}
+        currentCoord={
+          posState.currentPosition
+        }
         currentUser={currentUser}
         isLoading={isSavedPlacesLoading}
         errorMessage={savedPlacesError}
-        onRefresh={() => loadCloudSavedPlaces(currentUser)}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onRefresh={() =>
+          loadCloudSavedPlaces(
+            currentUser
+          )
+        }
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
+        }
         onSelectDestination={(poi) => {
-          setIsSavedLocationsOpen(false);
+          setIsSavedLocationsOpen(
+            false
+          );
           handleCalculateRoute(poi);
         }}
-        onAddLocation={handleAddSavedLocation}
-        onDeleteLocation={handleDeleteSavedLocation}
+        onAddLocation={
+          handleAddSavedLocation
+        }
+        onDeleteLocation={
+          handleDeleteSavedLocation
+        }
       />
 
       <DownloadRegionScreen
         isOpen={isDownloadRegionOpen}
         onClose={() => {
-          setIsDownloadRegionOpen(false);
+          setIsDownloadRegionOpen(
+            false
+          );
           setActiveTab('map');
         }}
         activeRegion={activeRegion}
         onSelectRegion={(reg) => {
           setActiveRegion(reg);
-          showToast(`Active offline region set to: ${reg.name}`);
+          showToast(
+            `Active offline region set to: ${reg.name}`
+          );
         }}
       />
 
       <SettingsScreen
         isOpen={isSettingsScreenOpen}
         onClose={() => {
-          setIsSettingsScreenOpen(false);
+          setIsSettingsScreenOpen(
+            false
+          );
           setActiveTab('map');
         }}
         batteryState={batteryState}
         currentUser={currentUser}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onUpdatePreferences={handleUpdatePreferences}
-        onToggleUltraMode={() => batteryManager.toggleUltraMode()}
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
+        }
+        onUpdatePreferences={
+          handleUpdatePreferences
+        }
+        onToggleUltraMode={() =>
+          batteryManager.toggleUltraMode()
+        }
         isVoiceMuted={isVoiceMuted}
         onToggleMute={() => {
-          const muted = !isVoiceMuted;
+          const muted =
+            !isVoiceMuted;
+
           setIsVoiceMuted(muted);
-          voiceEngine.setMuted(muted);
-          handleUpdatePreferences({ voice_enabled: !muted });
+          voiceEngine.setMuted(
+            muted
+          );
+          handleUpdatePreferences({
+            voice_enabled: !muted,
+          });
         }}
       />
 
       <VoiceAIPanel
         isOpen={isVoiceModalOpen}
-        onClose={() => setIsVoiceModalOpen(false)}
+        onClose={() =>
+          setIsVoiceModalOpen(false)
+        }
         activeRegion={activeRegion}
         savedLocations={savedLocations}
-        onExecuteCommand={handleExecuteAICommand}
+        onExecuteCommand={
+          handleExecuteAICommand
+        }
       />
 
       {/* Supabase Authentication Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() =>
+          setIsAuthModalOpen(false)
+        }
         currentUser={currentUser}
         onAuthSuccess={(user) => {
           setCurrentUser(user);

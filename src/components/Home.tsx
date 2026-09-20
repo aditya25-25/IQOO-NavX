@@ -1,4 +1,3 @@
-```tsx
 import React from "react";
 import {
   Search,
@@ -17,7 +16,18 @@ import {
   Wifi,
 } from "lucide-react";
 
+import { BatteryState, MapRegion, POI, PositionState } from "../types";
+import { MapView } from "./MapView";
+import { NavigationProgress } from "../engine/navigationController";
+
 interface HomeProps {
+  activeRegion: MapRegion;
+  savedLocations: POI[];
+  posState: PositionState;
+  batteryState: BatteryState;
+  navProgress: NavigationProgress;
+  isOffline: boolean;
+
   onSearch?: () => void;
   onVoice?: () => void;
   onStartNavigation?: () => void;
@@ -25,9 +35,18 @@ interface HomeProps {
   onSettings?: () => void;
   onRecenter?: () => void;
   onAddLocation?: () => void;
+
+  onSelectDestination?: (poi: POI) => void;
 }
 
 const Home: React.FC<HomeProps> = ({
+  activeRegion,
+  savedLocations,
+  posState,
+  batteryState,
+  navProgress,
+  isOffline,
+
   onSearch,
   onVoice,
   onStartNavigation,
@@ -35,17 +54,75 @@ const Home: React.FC<HomeProps> = ({
   onSettings,
   onRecenter,
   onAddLocation,
+  onSelectDestination,
 }) => {
-  return (
-    <main className="min-h-screen w-full bg-[#050706] text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col overflow-hidden bg-[#080b0a]">
+  /*
+   * ============================================================
+   * REAL NAVX DATA
+   * ============================================================
+   */
 
+  const batteryPercent = Math.max(
+    0,
+    Math.min(100, Math.round(batteryState.level * 100))
+  );
+
+  const currentPosition = posState.currentPosition;
+
+  /*
+   * Try to find actual Home / College POIs from the active region.
+   * Falls back to saved locations if necessary.
+   */
+  const homePoi =
+    activeRegion.pois.find(
+      (poi) =>
+        poi.category?.toLowerCase() === "home" ||
+        poi.name?.toLowerCase() === "home"
+    ) ??
+    savedLocations.find(
+      (poi) =>
+        poi.category?.toLowerCase() === "home" ||
+        poi.name?.toLowerCase() === "home"
+    );
+
+  const collegePoi =
+    activeRegion.pois.find(
+      (poi) =>
+        poi.category?.toLowerCase() === "college" ||
+        poi.name?.toLowerCase() === "college"
+    ) ??
+    savedLocations.find(
+      (poi) =>
+        poi.category?.toLowerCase() === "college" ||
+        poi.name?.toLowerCase() === "college"
+    );
+
+  const hasDestination = Boolean(navProgress.activeRoute);
+
+  /*
+   * ============================================================
+   * DESTINATION SELECTION
+   * ============================================================
+   */
+
+  const selectDestination = (poi?: POI) => {
+    if (!poi) {
+      onAddLocation?.();
+      return;
+    }
+
+    onSelectDestination?.(poi);
+  };
+
+  return (
+    <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto bg-[#050706] text-white">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#080b0a]">
         {/* =====================================================
             HEADER
         ===================================================== */}
+
         <header className="px-5 pb-3 pt-5">
           <div className="flex items-start justify-between">
-
             {/* Logo + Status */}
             <div>
               <h1 className="text-[30px] font-extrabold tracking-[-1.5px]">
@@ -61,23 +138,32 @@ const Home: React.FC<HomeProps> = ({
 
                 <span className="text-gray-700">•</span>
 
-                <span className="text-gray-400">
-                  Offline Ready
+                <span
+                  className={
+                    isOffline
+                      ? "text-lime-300"
+                      : "text-gray-400"
+                  }
+                >
+                  {isOffline ? "Offline Ready" : "Online"}
                 </span>
               </div>
             </div>
 
             {/* Battery + More */}
             <div className="flex items-center gap-2">
-
               <div className="flex items-center gap-2 rounded-full border border-lime-400/30 bg-[#111713] px-3.5 py-2">
                 <BatteryMedium
                   size={17}
-                  className="text-lime-400"
+                  className={
+                    batteryPercent <= 20
+                      ? "text-red-400"
+                      : "text-lime-400"
+                  }
                 />
 
                 <span className="text-xs font-medium text-gray-200">
-                  82%
+                  {batteryPercent}%
                 </span>
               </div>
 
@@ -88,14 +174,14 @@ const Home: React.FC<HomeProps> = ({
               >
                 <MoreVertical size={19} />
               </button>
-
             </div>
           </div>
         </header>
 
         {/* =====================================================
-            SEARCH BAR
+            SEARCH
         ===================================================== */}
+
         <section className="px-5 pt-2">
           <button
             type="button"
@@ -134,97 +220,41 @@ const Home: React.FC<HomeProps> = ({
         </section>
 
         {/* =====================================================
-            MAP
-            Replace temporary visual layer with existing MapView
+            REAL MAP
         ===================================================== */}
+
         <section className="relative mx-5 mt-5 h-[390px] overflow-hidden rounded-[28px] border border-white/10 bg-[#10191d]">
+          <MapView
+            currentPosition={currentPosition}
+            positionState={posState}
+            activeRoute={navProgress.activeRoute}
+            activeRegion={activeRegion}
+            savedLocations={savedLocations}
+            isUltraMode={batteryState.isUltraMode}
+            onSelectPOI={(poi) => {
+              onSelectDestination?.(poi);
+            }}
+          />
 
-          {/* Temporary Map Background */}
-          <div className="absolute inset-0 overflow-hidden">
-
-            {/* Dark map grid */}
-            <div className="absolute inset-0 opacity-60">
-
-              {/* Roads */}
-              <div className="absolute left-[8%] top-[-20%] h-[150%] w-[3px] rotate-[25deg] bg-slate-500/25" />
-
-              <div className="absolute left-[24%] top-[-20%] h-[150%] w-[2px] rotate-[-15deg] bg-slate-500/20" />
-
-              <div className="absolute left-[48%] top-[-30%] h-[170%] w-[4px] rotate-[53deg] bg-slate-500/25" />
-
-              <div className="absolute left-[70%] top-[-20%] h-[150%] w-[3px] rotate-[-25deg] bg-slate-500/25" />
-
-              <div className="absolute left-[88%] top-[-20%] h-[150%] w-[2px] rotate-[18deg] bg-slate-500/20" />
-
-              <div className="absolute left-[-20%] top-[25%] h-[3px] w-[150%] rotate-[8deg] bg-slate-500/25" />
-
-              <div className="absolute left-[-20%] top-[47%] h-[4px] w-[150%] rotate-[-10deg] bg-slate-500/25" />
-
-              <div className="absolute left-[-20%] top-[70%] h-[2px] w-[150%] rotate-[18deg] bg-slate-500/20" />
-
-              <div className="absolute left-[-20%] top-[87%] h-[3px] w-[150%] rotate-[-8deg] bg-slate-500/20" />
-
-              {/* District blocks */}
-              <div className="absolute left-5 top-24 h-20 w-28 rounded-2xl bg-emerald-400/[0.06]" />
-
-              <div className="absolute right-5 top-20 h-28 w-32 rounded-2xl bg-emerald-400/[0.05]" />
-
-              <div className="absolute bottom-20 left-12 h-20 w-28 rounded-2xl bg-emerald-400/[0.05]" />
-
-              <div className="absolute bottom-12 right-10 h-28 w-32 rounded-2xl bg-emerald-400/[0.05]" />
-
-              {/* River */}
-              <div className="absolute -left-20 top-[58%] h-12 w-[140%] rotate-[18deg] rounded-full bg-blue-500/20 blur-[2px]" />
-
-            </div>
-
-            {/* Map Labels */}
-            <div className="absolute left-[15%] top-[36%] text-[11px] text-gray-400">
-              <span className="mr-1">♟</span>
-              Riverside Park
-            </div>
-
-            <div className="absolute right-[18%] top-[42%] text-[13px] leading-tight text-gray-400">
-              Central
-              <br />
-              District
-            </div>
-
-            <div className="absolute bottom-[18%] right-[22%] text-[11px] text-gray-500">
-              Tech Park
-            </div>
-
-            {/* Route */}
-            <div className="absolute left-[39%] top-[61%] h-[180px] w-[6px] origin-top rotate-[18deg] rounded-full bg-lime-400 shadow-[0_0_15px_rgba(163,255,18,0.55)]" />
-
-            <div className="absolute left-[37%] top-[58%] h-16 w-16 rounded-full bg-lime-400/10 blur-md" />
-          </div>
-
-          {/* Map Status */}
-          <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
-
-            <div className="rounded-full border border-white/20 bg-black/50 px-4 py-2 backdrop-blur-md">
+          {/* Map status overlay */}
+          <div className="pointer-events-none absolute left-4 right-4 top-4 flex items-center justify-between">
+            <div className="rounded-full border border-white/20 bg-black/60 px-4 py-2 backdrop-blur-md">
               <span className="text-[11px] font-semibold tracking-wide text-white">
-                OFFLINE MAP
+                {isOffline ? "OFFLINE MAP" : "MAP READY"}
               </span>
             </div>
 
-            <div className="flex items-center gap-2 rounded-full border border-lime-400/50 bg-black/50 px-4 py-2 backdrop-blur-md">
-              <Wifi
-                size={13}
-                className="text-lime-400"
-              />
+            <div className="flex items-center gap-2 rounded-full border border-lime-400/50 bg-black/60 px-4 py-2 backdrop-blur-md">
+              <Wifi size={13} className="text-lime-400" />
 
               <span className="text-[11px] font-medium text-lime-300">
                 Sensor Assisted
               </span>
             </div>
-
           </div>
 
-          {/* Current Position */}
-          <div className="absolute left-[50%] top-[52%] -translate-x-1/2 -translate-y-1/2">
-
+          {/* Current position indicator */}
+          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <div className="absolute -inset-12 rounded-full bg-lime-400/[0.05]" />
 
             <div className="absolute -inset-7 rounded-full bg-lime-400/[0.08]" />
@@ -246,9 +276,8 @@ const Home: React.FC<HomeProps> = ({
             <LocateFixed size={20} />
           </button>
 
-          {/* Zoom Controls */}
+          {/* Zoom controls - visual controls */}
           <div className="absolute bottom-4 right-4 overflow-hidden rounded-2xl border border-white/20 bg-black/60 backdrop-blur-md">
-
             <button
               type="button"
               aria-label="Zoom in"
@@ -264,19 +293,13 @@ const Home: React.FC<HomeProps> = ({
             >
               <Minus size={19} />
             </button>
-
           </div>
 
           {/* Current Location */}
           <div className="absolute bottom-4 left-4 rounded-2xl border border-white/10 bg-black/70 px-3.5 py-3 backdrop-blur-xl">
-
             <div className="flex items-center gap-3">
-
               <div className="flex h-10 w-10 items-center justify-center rounded-full border border-lime-400/30 bg-lime-400/10">
-                <MapPin
-                  size={20}
-                  className="text-lime-400"
-                />
+                <MapPin size={20} className="text-lime-400" />
               </div>
 
               <div>
@@ -285,10 +308,11 @@ const Home: React.FC<HomeProps> = ({
                 </p>
 
                 <p className="mt-0.5 text-xs font-semibold text-white">
-                  Location detected
+                  {currentPosition
+                    ? "Location detected"
+                    : "Detecting location..."}
                 </p>
               </div>
-
             </div>
           </div>
         </section>
@@ -296,10 +320,9 @@ const Home: React.FC<HomeProps> = ({
         {/* =====================================================
             QUICK DESTINATIONS
         ===================================================== */}
+
         <section className="px-5 pt-6">
-
           <div className="mb-4 flex items-center justify-between">
-
             <h2 className="text-[18px] font-bold text-white">
               Quick destinations
             </h2>
@@ -312,31 +335,34 @@ const Home: React.FC<HomeProps> = ({
               Manage
               <span className="text-lg">›</span>
             </button>
-
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-
             {/* HOME */}
             <button
               type="button"
+              onClick={() => selectDestination(homePoi)}
               className="flex min-h-[150px] flex-col items-center justify-center gap-4 rounded-[22px] border border-lime-400/20 bg-[#0d1913] p-4 transition hover:border-lime-400/40 hover:bg-[#102017]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-full border border-lime-400/30 bg-lime-400/10">
-                <HomeIcon
-                  size={24}
-                  className="text-lime-400"
-                />
+                <HomeIcon size={24} className="text-lime-400" />
               </div>
 
               <span className="text-[16px] font-semibold text-white">
                 Home
               </span>
+
+              {!homePoi && (
+                <span className="text-center text-[9px] text-gray-500">
+                  Not saved
+                </span>
+              )}
             </button>
 
             {/* COLLEGE */}
             <button
               type="button"
+              onClick={() => selectDestination(collegePoi)}
               className="flex min-h-[150px] flex-col items-center justify-center gap-4 rounded-[22px] border border-lime-400/20 bg-[#0d1913] p-4 transition hover:border-lime-400/40 hover:bg-[#102017]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-full border border-lime-400/30 bg-lime-400/10">
@@ -349,6 +375,12 @@ const Home: React.FC<HomeProps> = ({
               <span className="text-[16px] font-semibold text-white">
                 College
               </span>
+
+              {!collegePoi && (
+                <span className="text-center text-[9px] text-gray-500">
+                  Not saved
+                </span>
+              )}
             </button>
 
             {/* ADD */}
@@ -358,33 +390,27 @@ const Home: React.FC<HomeProps> = ({
               className="flex min-h-[150px] flex-col items-center justify-center gap-4 rounded-[22px] border border-dashed border-white/20 bg-[#0a1113] p-4 transition hover:border-lime-400/30 hover:bg-[#0d1713]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#162126]">
-                <Plus
-                  size={25}
-                  className="text-gray-400"
-                />
+                <Plus size={25} className="text-gray-400" />
               </div>
 
               <span className="text-[16px] font-medium text-gray-400">
                 Add
               </span>
             </button>
-
           </div>
         </section>
 
         {/* =====================================================
             START NAVIGATION
         ===================================================== */}
-        <section className="px-5 pt-5">
 
+        <section className="px-5 pt-5">
           <button
             type="button"
             onClick={onStartNavigation}
             className="group flex w-full items-center justify-between rounded-[24px] bg-lime-400 px-5 py-5 text-black shadow-[0_0_35px_rgba(163,255,18,0.18)] transition hover:bg-lime-300 active:scale-[0.98]"
           >
-
             <div className="flex items-center gap-4">
-
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black">
                 <Navigation
                   size={22}
@@ -393,30 +419,29 @@ const Home: React.FC<HomeProps> = ({
               </div>
 
               <div className="text-left">
-
                 <p className="text-[19px] font-extrabold">
                   Start Navigation
                 </p>
 
                 <p className="mt-0.5 text-xs font-medium opacity-70">
-                  Select a destination first
+                  {hasDestination
+                    ? "Ready to navigate"
+                    : "Select a destination first"}
                 </p>
-
               </div>
             </div>
 
             <span className="text-3xl transition group-hover:translate-x-1">
               →
             </span>
-
           </button>
         </section>
 
         {/* =====================================================
             BOTTOM NAVIGATION
         ===================================================== */}
-        <nav className="mt-7 flex items-center justify-around border-t border-white/10 bg-[#080b0a] px-5 pb-6 pt-5">
 
+        <nav className="mt-7 flex items-center justify-around border-t border-white/10 bg-[#080b0a] px-5 pb-6 pt-5">
           {/* MAP */}
           <button
             type="button"
@@ -463,7 +488,6 @@ const Home: React.FC<HomeProps> = ({
 
             <span className="h-0.5 w-12 rounded-full bg-transparent" />
           </button>
-
         </nav>
       </div>
     </main>
@@ -471,4 +495,3 @@ const Home: React.FC<HomeProps> = ({
 };
 
 export default Home;
-```

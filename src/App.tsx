@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { REGIONS } from './data/regions';
 import { Coordinates, MapRegion, POI, PositionState, BatteryState, AICommandResult } from './types';
 import { PositionFusionManager } from './sensors/positionFusion';
@@ -6,6 +6,12 @@ import { NavigationController, NavigationProgress } from './engine/navigationCon
 import { RouteManager } from './engine/routeManager';
 import { batteryManager } from './battery/batteryManager';
 import { voiceEngine } from './voice/voiceGuidance';
+import { authService } from './services/supabase/authService';
+import { savedPlacesService } from './services/supabase/savedPlacesService';
+import { preferencesService } from './services/supabase/preferencesService';
+import { recentRoutesService } from './services/supabase/recentRoutesService';
+import { User } from '@supabase/supabase-js';
+
 import { SplashScreen } from './components/SplashScreen';
 import { LandingPage } from './components/LandingPage';
 import { NavigationHeader } from './components/NavigationHeader';
@@ -24,6 +30,7 @@ import { UltraNavOverlay } from './components/UltraNavOverlay';
 import { VoiceAIPanel } from './components/VoiceAIPanel';
 import { NavXEngineDrawer } from './components/NavXEngineDrawer';
 import { BottomNavBar, TabType } from './components/BottomNavBar';
+import { AuthModal } from './components/AuthModal';
 import { 
   Sparkles,
   Zap
@@ -35,6 +42,12 @@ export const App: React.FC = () => {
 
   // App Launch Splash State
   const [showSplash, setShowSplash] = useState(false);
+
+  // Supabase Authentication & Cloud State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSavedPlacesLoading, setIsSavedPlacesLoading] = useState(false);
+  const [savedPlacesError, setSavedPlacesError] = useState<string | null>(null);
 
   // Region & Saved Places
   const [activeRegion, setActiveRegion] = useState<MapRegion>(REGIONS[0]);
@@ -84,6 +97,91 @@ export const App: React.FC = () => {
   const [isPhoneFrameView, setIsPhoneFrameView] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Toast Helper
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  }, []);
+
+  // Sync Saved Places from Supabase
+  const loadCloudSavedPlaces = useCallback(async (user: User | null) => {
+    if (!user) {
+      // Revert to region default saved locations
+      setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
+      return;
+    }
+
+    setIsSavedPlacesLoading(true);
+    setSavedPlacesError(null);
+
+    const { data, error } = await savedPlacesService.fetchSavedPlaces();
+    setIsSavedPlacesLoading(false);
+
+    if (error) {
+      setSavedPlacesError(error);
+      showToast(`Cloud Sync: ${error}`);
+    } else if (data) {
+      if (data.length > 0) {
+        // Convert Supabase rows to POI format
+        const cloudPois: POI[] = data.map((row) => ({
+          id: row.id,
+          name: row.name,
+          category: 'work',
+          coordinate: {
+            lat: Number(row.latitude),
+            lng: Number(row.longitude),
+          },
+          address: 'Supabase Cloud Saved Place',
+          regionId: activeRegion.id,
+          isSaved: true,
+        }));
+
+        setSavedLocations(cloudPois);
+        showToast(`Synced ${cloudPois.length} saved place(s) from Supabase`);
+      } else {
+        // Keep default places if cloud list is empty
+        setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
+      }
+    }
+  }, [activeRegion, showToast]);
+
+  // Load Cloud Preferences
+  const loadCloudPreferences = useCallback(async (user: User | null) => {
+    if (!user) return;
+    const { data } = await preferencesService.fetchPreferences();
+    if (data) {
+      if (data.voice_enabled !== undefined) {
+        const muted = !data.voice_enabled;
+        setIsVoiceMuted(muted);
+        voiceEngine.setMuted(muted);
+      }
+    }
+  }, []);
+
+  // Initialize Supabase Auth Session
+  useEffect(() => {
+    authService.getCurrentUser().then((user) => {
+      setCurrentUser(user);
+      if (user) {
+        loadCloudSavedPlaces(user);
+        loadCloudPreferences(user);
+      }
+    });
+
+    const { data: authListener } = authService.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      setCurrentUser(user);
+      if (user) {
+        loadCloudSavedPlaces(user);
+        loadCloudPreferences(user);
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [loadCloudSavedPlaces, loadCloudPreferences]);
+
   // Subscriptions to Reactive Engines
   useEffect(() => {
     const unsubPos = positionManager.subscribe((st) => setPosState(st));
@@ -107,19 +205,15 @@ export const App: React.FC = () => {
   // Sync region changes
   useEffect(() => {
     navCtrl.setRegion(activeRegion);
-    setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
+    if (!currentUser) {
+      setSavedLocations(activeRegion.pois.filter((p) => p.isSaved));
+    }
     const newHome = activeRegion.pois.find((p) => p.category === 'home') || activeRegion.pois[0];
     const newDest = activeRegion.pois.find((p) => p.category === 'college') || activeRegion.pois[1];
     setOriginCoord(newHome.coordinate);
     setOriginName(newHome.name);
     setSelectedDestination(newDest);
-  }, [activeRegion, navCtrl]);
-
-  // Toast Helper
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  }, [activeRegion, navCtrl, currentUser]);
 
   // Launch App from Landing Page
   const handleLaunchApp = () => {
@@ -145,6 +239,15 @@ export const App: React.FC = () => {
           ? `Calculated offline graph route: ${(result.route.totalDistanceMeters / 1000).toFixed(1)} km`
           : `Calculated online route: ${(result.route.totalDistanceMeters / 1000).toFixed(1)} km`
       );
+
+      // Record recent route if user is signed in
+      if (currentUser) {
+        recentRoutesService.recordRecentRoute(
+          dest.name,
+          result.route.totalDistanceMeters,
+          result.route.totalDurationSeconds
+        );
+      }
     } else {
       showToast('Could not calculate route for this destination.');
     }
@@ -162,9 +265,23 @@ export const App: React.FC = () => {
       );
       if (result) {
         navCtrl.startNavigation(result.route);
+        if (currentUser) {
+          recentRoutesService.recordRecentRoute(
+            selectedDestination.name,
+            result.route.totalDistanceMeters,
+            result.route.totalDurationSeconds
+          );
+        }
       }
     } else if (navProgress.activeRoute) {
       navCtrl.startNavigation();
+      if (currentUser && selectedDestination) {
+        recentRoutesService.recordRecentRoute(
+          selectedDestination.name,
+          navProgress.activeRoute.totalDistanceMeters,
+          navProgress.activeRoute.totalDurationSeconds
+        );
+      }
     }
   };
 
@@ -200,18 +317,69 @@ export const App: React.FC = () => {
     }
   };
 
+  // Add / Save Place Handler (Cloud + Local)
+  const handleAddSavedLocation = async (newPoi: POI) => {
+    // 1. Optimistic Local State Update
+    setSavedLocations((prev) => [newPoi, ...prev]);
+
+    // 2. Cloud Supabase Sync (if authenticated)
+    if (currentUser) {
+      const { data, error } = await savedPlacesService.createSavedPlace(
+        newPoi.name,
+        newPoi.coordinate.lat,
+        newPoi.coordinate.lng
+      );
+
+      if (error) {
+        showToast(`Saved locally (Cloud sync failed: ${error})`);
+      } else if (data) {
+        // Update local item with real Supabase generated ID
+        setSavedLocations((prev) =>
+          prev.map((p) => (p.id === newPoi.id ? { ...p, id: data.id } : p))
+        );
+        showToast(`Saved "${newPoi.name}" to Supabase cloud`);
+      }
+    } else {
+      showToast(`Added "${newPoi.name}" to offline saved places`);
+    }
+  };
+
+  // Delete Place Handler (Cloud + Local)
+  const handleDeleteSavedLocation = async (id: string) => {
+    // 1. Local State Update
+    setSavedLocations((prev) => prev.filter((p) => p.id !== id));
+
+    // 2. Cloud Supabase Delete (if authenticated)
+    if (currentUser) {
+      const { error } = await savedPlacesService.deleteSavedPlace(id);
+      if (error) {
+        showToast(`Deleted locally (Cloud sync error: ${error})`);
+      } else {
+        showToast('Deleted place from Supabase cloud');
+      }
+    } else {
+      showToast('Removed saved location');
+    }
+  };
+
   // Toggle Saved POI
   const handleToggleSavePOI = (poi: POI) => {
-    setSavedLocations((prev) => {
-      const exists = prev.some((p) => p.id === poi.id);
-      if (exists) {
-        showToast(`Removed "${poi.name}" from saved places`);
-        return prev.filter((p) => p.id !== poi.id);
-      } else {
-        showToast(`Saved "${poi.name}" to favorites`);
-        return [...prev, { ...poi, isSaved: true }];
+    const exists = savedLocations.some((p) => p.id === poi.id || p.name === poi.name);
+    if (exists) {
+      const existing = savedLocations.find((p) => p.id === poi.id || p.name === poi.name);
+      if (existing) {
+        handleDeleteSavedLocation(existing.id);
       }
-    });
+    } else {
+      handleAddSavedLocation({ ...poi, isSaved: true });
+    }
+  };
+
+  // Handle Preference Update
+  const handleUpdatePreferences = async (prefs: { voice_enabled?: boolean; dark_mode?: boolean }) => {
+    if (currentUser) {
+      await preferencesService.savePreferences(prefs);
+    }
   };
 
   // Simulation Scenario Dispatcher
@@ -294,12 +462,14 @@ export const App: React.FC = () => {
         <SplashScreen onComplete={() => setShowSplash(false)} />
       )}
 
-      {/* Reusable Application Header Shell (Section 5) */}
+      {/* Reusable Application Header Shell */}
       <NavigationHeader
         isNavigating={isNavigating}
         isOffline={isOfflineForced}
         posState={posState}
         batteryState={batteryState}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
         onBackOrStopNav={() => navCtrl.stopNavigation()}
         onToggleViewMode={() => setViewMode('landing')}
         isPhoneFrameView={isPhoneFrameView}
@@ -333,6 +503,7 @@ export const App: React.FC = () => {
               const muted = !isVoiceMuted;
               setIsVoiceMuted(muted);
               voiceEngine.setMuted(muted);
+              handleUpdatePreferences({ voice_enabled: !muted });
             }}
             onStopNav={() => navCtrl.stopNavigation()}
             onReroute={() => navCtrl.simulateMissedTurn()}
@@ -435,6 +606,7 @@ export const App: React.FC = () => {
                 const muted = !isVoiceMuted;
                 setIsVoiceMuted(muted);
                 voiceEngine.setMuted(muted);
+                handleUpdatePreferences({ voice_enabled: !muted });
               }}
               onExitUltraMode={() => batteryManager.toggleUltraMode(false)}
             />
@@ -509,18 +681,17 @@ export const App: React.FC = () => {
         }}
         savedLocations={savedLocations}
         currentCoord={posState.currentPosition}
+        currentUser={currentUser}
+        isLoading={isSavedPlacesLoading}
+        errorMessage={savedPlacesError}
+        onRefresh={() => loadCloudSavedPlaces(currentUser)}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
         onSelectDestination={(poi) => {
           setIsSavedLocationsOpen(false);
           handleCalculateRoute(poi);
         }}
-        onAddLocation={(newPoi) => {
-          setSavedLocations((prev) => [...prev, newPoi]);
-          showToast(`Added "${newPoi.name}" to saved locations`);
-        }}
-        onDeleteLocation={(id) => {
-          setSavedLocations((prev) => prev.filter((p) => p.id !== id));
-          showToast('Removed saved location');
-        }}
+        onAddLocation={handleAddSavedLocation}
+        onDeleteLocation={handleDeleteSavedLocation}
       />
 
       <DownloadRegionScreen
@@ -543,12 +714,16 @@ export const App: React.FC = () => {
           setActiveTab('map');
         }}
         batteryState={batteryState}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onUpdatePreferences={handleUpdatePreferences}
         onToggleUltraMode={() => batteryManager.toggleUltraMode()}
         isVoiceMuted={isVoiceMuted}
         onToggleMute={() => {
           const muted = !isVoiceMuted;
           setIsVoiceMuted(muted);
           voiceEngine.setMuted(muted);
+          handleUpdatePreferences({ voice_enabled: !muted });
         }}
       />
 
@@ -558,6 +733,18 @@ export const App: React.FC = () => {
         activeRegion={activeRegion}
         savedLocations={savedLocations}
         onExecuteCommand={handleExecuteAICommand}
+      />
+
+      {/* Supabase Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          loadCloudSavedPlaces(user);
+          loadCloudPreferences(user);
+        }}
       />
     </div>
   );

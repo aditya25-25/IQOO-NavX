@@ -1,4 +1,3 @@
-```tsx
 import React, { useState } from 'react';
 import {
   Mic,
@@ -374,4 +373,3 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
     </div>
   );
 };
-```

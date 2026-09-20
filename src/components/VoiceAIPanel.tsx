@@ -1,13 +1,16 @@
+```tsx
 import React, { useState } from 'react';
-import { 
-  Mic, 
-  MicOff, 
-  Send, 
-  X, 
-  Volume2, 
-  CheckCircle2, 
+import {
+  Mic,
+  MicOff,
+  Send,
+  X,
+  Volume2,
+  CheckCircle2,
   AlertCircle,
-  Compass
+  Compass,
+  Sparkles,
+  Radio,
 } from 'lucide-react';
 import { AICommandResult, MapRegion, POI } from '../types';
 import { parseAICommand } from '../ai/commandParser';
@@ -22,6 +25,34 @@ interface VoiceAIPanelProps {
   savedLocations: POI[];
   onExecuteCommand: (result: AICommandResult) => void;
 }
+
+const stateConfig = {
+  IDLE: {
+    label: 'Tap to speak',
+    description: 'Give NavX a navigation command',
+    icon: MicOff,
+  },
+  LISTENING: {
+    label: 'Listening',
+    description: 'Speak a destination or navigation command',
+    icon: Mic,
+  },
+  PROCESSING: {
+    label: 'Understanding',
+    description: 'NavX is processing your command',
+    icon: Radio,
+  },
+  SUCCESS: {
+    label: 'Command confirmed',
+    description: 'Your navigation command is ready',
+    icon: CheckCircle2,
+  },
+  ERROR: {
+    label: 'Command not recognized',
+    description: 'Try another navigation command',
+    icon: AlertCircle,
+  },
+};
 
 export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
   isOpen,
@@ -56,12 +87,14 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
 
       if (result.intent === 'UNKNOWN') {
         setVoiceState('ERROR');
-        voiceEngine.speak("Couldn't understand that. Try saying: Navigate to College.", true);
+        voiceEngine.speak(
+          "Couldn't understand that. Try saying: Navigate to College.",
+          true
+        );
       } else {
         setVoiceState('SUCCESS');
         voiceEngine.speak(result.responseVoiceText, true);
 
-        // Auto execute after confirmation
         setTimeout(() => {
           onExecuteCommand(result);
         }, 900);
@@ -75,6 +108,7 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
       setVoiceState('IDLE');
     } else {
       setVoiceState('LISTENING');
+
       const started = voiceEngine.startListening(
         (transcript) => {
           setInputText(transcript);
@@ -84,7 +118,6 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
       );
 
       if (!started) {
-        // Fallback simulation if speech recognition is not supported/granted in web browser
         setTimeout(() => {
           const sample = 'Navigate to College';
           setInputText(sample);
@@ -94,152 +127,251 @@ export const VoiceAIPanel: React.FC<VoiceAIPanelProps> = ({
     }
   };
 
+  const StateIcon = stateConfig[voiceState].icon;
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 select-none animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-[#111315] border border-[#2B2F33] rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#2B2F33] pb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-[#FFD400]/15 text-[#FFD400]">
-              <Compass size={17} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm animate-in fade-in duration-200 sm:items-center sm:p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-t-[28px] border border-[#2B2F33] bg-[#111315] shadow-2xl sm:rounded-[28px]">
+        <div className="flex justify-center pt-2 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-[#2B2F33]" />
+        </div>
+
+        <div className="flex items-center justify-between border-b border-[#2B2F33] px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#FFD400]/20 bg-[#FFD400]/10 text-[#FFD400]">
+              <Compass size={19} />
             </div>
-            <div>
-              <span className="text-sm font-bold uppercase tracking-wider text-[#F5F7F8] font-display">
-                Voice Interaction
-              </span>
-              <p className="text-[10px] text-[#A4A9AE]">Hands-free Navigation Commands</p>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold tracking-tight text-[#F5F7F8]">
+                  Voice Navigation
+                </h2>
+
+                <span className="rounded-md bg-[#FFD400] px-1.5 py-0.5 text-[8px] font-black tracking-wider text-black">
+                  AI
+                </span>
+              </div>
+
+              <p className="mt-0.5 text-[10px] text-[#6F757B]">
+                Hands-free NavX commands
+              </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-white transition-colors"
+            aria-label="Close voice navigation"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#2B2F33] bg-[#191C1F] text-[#A4A9AE] transition-all hover:bg-[#22262A] hover:text-[#F5F7F8] focus:outline-none focus:ring-2 focus:ring-[#FFD400]/50 active:scale-95"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
 
-        {/* Voice Visualizer Area */}
-        <div className="flex flex-col items-center justify-center py-6 bg-[#191C1F] rounded-2xl border border-[#2B2F33] space-y-3 relative overflow-hidden">
-          <button
-            onClick={handleToggleVoice}
-            className={`w-18 h-18 rounded-full flex items-center justify-center transition-all ${
-              voiceState === 'LISTENING'
-                ? 'bg-[#FFD400] text-black shadow-[0_0_35px_rgba(255,212,0,0.4)] scale-110 animate-pulse'
-                : voiceState === 'PROCESSING'
-                ? 'bg-[#F59E0B] text-black animate-spin'
-                : voiceState === 'SUCCESS'
-                ? 'bg-[#22C55E] text-black shadow-[0_0_25px_rgba(34,197,94,0.4)]'
-                : voiceState === 'ERROR'
-                ? 'bg-[#EF4444] text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]'
-                : 'bg-[#22262A] hover:bg-[#FFD400]/20 text-[#F5F7F8] hover:text-[#FFD400] border border-[#2B2F33]'
-            }`}
-          >
-            {voiceState === 'LISTENING' ? (
-              <Mic size={30} />
-            ) : voiceState === 'SUCCESS' ? (
-              <CheckCircle2 size={30} />
-            ) : voiceState === 'ERROR' ? (
-              <AlertCircle size={30} />
-            ) : (
-              <MicOff size={28} />
-            )}
-          </button>
+        <div className="space-y-4 p-5">
+          <div className="relative overflow-hidden rounded-3xl border border-[#2B2F33] bg-[#191C1F] px-4 py-7">
+            <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-[#FFD400]/50" />
 
-          {/* Voice State Title */}
-          <div className="text-center font-display">
-            <span className="text-xs font-bold text-[#F5F7F8] tracking-wide block">
-              {voiceState === 'IDLE' && 'Tap to speak'}
-              {voiceState === 'LISTENING' && 'Listening...'}
-              {voiceState === 'PROCESSING' && 'Understanding...'}
-              {voiceState === 'SUCCESS' && (lastResult?.destinationName ? `Navigating to ${lastResult.destinationName}` : 'Command Confirmed')}
-              {voiceState === 'ERROR' && "Couldn't understand that"}
-            </span>
-            <span className="text-[10px] text-[#A4A9AE]">
-              {voiceState === 'LISTENING' ? 'Speak a navigation destination or command' : 'Tap microphone to start voice input'}
-            </span>
+            <div className="relative flex flex-col items-center">
+              <button
+                type="button"
+                onClick={handleToggleVoice}
+                aria-label={
+                  voiceState === 'LISTENING'
+                    ? 'Stop listening'
+                    : 'Start voice navigation'
+                }
+                className={`relative flex h-20 w-20 items-center justify-center rounded-full border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FFD400]/60 focus:ring-offset-4 focus:ring-offset-[#191C1F] active:scale-95 ${
+                  voiceState === 'LISTENING'
+                    ? 'border-[#FFD400] bg-[#FFD400] text-black shadow-[0_0_0_8px_rgba(255,212,0,0.08)]'
+                    : voiceState === 'PROCESSING'
+                      ? 'border-[#F59E0B]/50 bg-[#F59E0B]/15 text-[#F59E0B]'
+                      : voiceState === 'SUCCESS'
+                        ? 'border-[#22C55E]/40 bg-[#22C55E]/15 text-[#22C55E]'
+                        : voiceState === 'ERROR'
+                          ? 'border-[#EF4444]/40 bg-[#EF4444]/15 text-[#EF4444]'
+                          : 'border-[#2B2F33] bg-[#22262A] text-[#F5F7F8] hover:border-[#FFD400]/50 hover:text-[#FFD400]'
+                }`}
+              >
+                <StateIcon
+                  size={30}
+                  className={
+                    voiceState === 'PROCESSING'
+                      ? 'animate-pulse'
+                      : ''
+                  }
+                />
+
+                {voiceState === 'LISTENING' && (
+                  <span className="absolute inset-[-7px] rounded-full border border-[#FFD400]/30 animate-ping" />
+                )}
+              </button>
+
+              <div className="mt-4 text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-sm font-bold text-[#F5F7F8]">
+                    {voiceState === 'SUCCESS' &&
+                    lastResult?.destinationName
+                      ? `Navigating to ${lastResult.destinationName}`
+                      : stateConfig[voiceState].label}
+                  </span>
+
+                  {voiceState === 'SUCCESS' && (
+                    <Sparkles size={13} className="text-[#FFD400]" />
+                  )}
+                </div>
+
+                <p className="mt-1 text-[11px] text-[#A4A9AE]">
+                  {stateConfig[voiceState].description}
+                </p>
+              </div>
+
+              {voiceState === 'LISTENING' && (
+                <div className="mt-4 flex h-6 items-center gap-1">
+                  {[8, 15, 22, 13, 19, 10, 17, 12, 20].map(
+                    (height, index) => (
+                      <span
+                        key={index}
+                        className="w-1 rounded-full bg-[#FFD400] animate-pulse"
+                        style={{
+                          height: `${height}px`,
+                          animationDelay: `${index * 70}ms`,
+                        }}
+                      />
+                    )
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Waveform Bars during Listening */}
-          {voiceState === 'LISTENING' && (
-            <div className="flex items-center gap-1 pt-1">
-              {[35, 70, 95, 55, 85, 40, 75, 50].map((height, idx) => (
-                <div
-                  key={idx}
-                  style={{ height: `${height * 0.25}px` }}
-                  className="w-1 bg-[#FFD400] rounded-full animate-pulse"
-                />
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F757B]">
+                Type a command
+              </span>
+
+              <span className="text-[9px] text-[#4F5459]">
+                Press Enter to send
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. Navigate to College"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleProcessInput(inputText);
+                  }
+                }}
+                aria-label="Navigation command"
+                className="min-w-0 flex-1 rounded-2xl border border-[#2B2F33] bg-[#191C1F] px-4 py-3 text-xs text-[#F5F7F8] placeholder-[#6F757B] outline-none transition-colors focus:border-[#FFD400] focus:ring-1 focus:ring-[#FFD400]/30"
+              />
+
+              <button
+                type="button"
+                onClick={() => handleProcessInput(inputText)}
+                disabled={!inputText.trim() || voiceState === 'PROCESSING'}
+                aria-label="Send navigation command"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFD400] text-black transition-all hover:bg-[#e6bf00] focus:outline-none focus:ring-2 focus:ring-[#FFD400]/50 disabled:cursor-not-allowed disabled:opacity-40 active:scale-95"
+              >
+                <Send size={15} />
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F757B]">
+                Try saying
+              </span>
+
+              <div className="h-px flex-1 bg-[#2B2F33]" />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {demoCommands.map((prompt) => (
+                <button
+                  type="button"
+                  key={prompt}
+                  onClick={() => {
+                    setInputText(prompt);
+                    handleProcessInput(prompt);
+                  }}
+                  className="rounded-full border border-[#2B2F33] bg-[#191C1F] px-3 py-2 text-[10px] font-medium text-[#A4A9AE] transition-all hover:border-[#FFD400]/40 hover:bg-[#FFD400]/10 hover:text-[#FFD400] focus:outline-none focus:ring-2 focus:ring-[#FFD400]/40 active:scale-95"
+                >
+                  {prompt}
+                </button>
               ))}
+            </div>
+          </div>
+
+          {lastResult && voiceState === 'SUCCESS' && (
+            <div className="rounded-2xl border border-[#22C55E]/25 bg-[#22C55E]/5 p-3.5 animate-in fade-in duration-200">
+              <div className="mb-2 flex items-center gap-2">
+                <CheckCircle2 size={14} className="text-[#22C55E]" />
+
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#22C55E]">
+                  Command Ready
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="text-[#6F757B]">Intent</span>
+
+                  <span className="rounded-lg border border-[#2B2F33] bg-[#191C1F] px-2 py-1 font-mono text-[10px] font-bold text-[#FFD400]">
+                    {lastResult.intent}
+                  </span>
+                </div>
+
+                {lastResult.destinationName && (
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-[#6F757B]">Destination</span>
+
+                    <span className="max-w-[210px] truncate font-semibold text-[#F5F7F8]">
+                      {lastResult.destinationName}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-2 border-t border-[#2B2F33] pt-2">
+                  <Volume2
+                    size={13}
+                    className="mt-0.5 shrink-0 text-[#FFD400]"
+                  />
+
+                  <span className="text-[11px] leading-4 text-[#A4A9AE]">
+                    {lastResult.responseVoiceText}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {voiceState === 'ERROR' && (
+            <div className="flex items-start gap-2 rounded-2xl border border-[#EF4444]/20 bg-[#EF4444]/5 p-3 text-[11px] text-[#A4A9AE]">
+              <AlertCircle
+                size={14}
+                className="mt-0.5 shrink-0 text-[#EF4444]"
+              />
+
+              <span>
+                Try a simple command such as{' '}
+                <span className="font-semibold text-[#F5F7F8]">
+                  “Navigate to College”
+                </span>
+                .
+              </span>
             </div>
           )}
         </div>
-
-        {/* Text Input Fallback */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Type navigation command (e.g. Navigate to College)..."
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleProcessInput(inputText);
-            }}
-            className="flex-1 bg-[#191C1F] border border-[#2B2F33] focus:border-[#FFD400] rounded-2xl px-4 py-2.5 text-xs text-[#F5F7F8] placeholder-[#6F757B] focus:outline-none"
-          />
-
-          <button
-            onClick={() => handleProcessInput(inputText)}
-            className="px-4 rounded-2xl bg-[#FFD400] text-black font-bold flex items-center justify-center hover:bg-[#e6bf00] transition-colors"
-          >
-            <Send size={15} />
-          </button>
-        </div>
-
-        {/* Supported Demo Commands Chips */}
-        <div className="space-y-1.5">
-          <span className="text-[10px] uppercase font-bold text-[#A4A9AE] tracking-wider font-display">
-            Supported Commands:
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {demoCommands.map((prompt, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setInputText(prompt);
-                  handleProcessInput(prompt);
-                }}
-                className="px-2.5 py-1 rounded-full bg-[#191C1F] hover:bg-[#FFD400]/20 text-[#A4A9AE] hover:text-[#FFD400] border border-[#2B2F33] text-[11px] font-medium transition-all"
-              >
-                "{prompt}"
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Confirmed Command Result */}
-        {lastResult && voiceState === 'SUCCESS' && (
-          <div className="p-3 rounded-2xl bg-[#191C1F] border border-[#2B2F33] space-y-1.5 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-[#A4A9AE]">Intent:</span>
-              <span className="font-mono font-bold text-[#FFD400] px-2 py-0.5 rounded bg-[#22262A] border border-[#2B2F33]">
-                {lastResult.intent}
-              </span>
-            </div>
-
-            {lastResult.destinationName && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#A4A9AE]">Destination:</span>
-                <span className="font-bold text-[#F5F7F8]">{lastResult.destinationName}</span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-1.5 pt-1.5 border-t border-[#2B2F33] text-xs text-[#A4A9AE] italic">
-              <Volume2 size={13} className="text-[#FFD400] flex-shrink-0" />
-              <span>"{lastResult.responseVoiceText}"</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 };
+```

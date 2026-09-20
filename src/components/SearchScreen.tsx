@@ -1,18 +1,19 @@
+```tsx
 import React, { useState } from 'react';
-import { 
-  Search, 
-  ArrowLeft, 
-  Mic, 
-  MapPin, 
-  Star, 
-  Navigation, 
-  GraduationCap, 
-  Building2, 
-  Home, 
-  Fuel, 
-  Cross, 
+import {
+  Search,
+  ArrowLeft,
+  Mic,
+  MapPin,
+  Star,
+  Navigation,
+  GraduationCap,
+  Building2,
+  Home,
+  Fuel,
+  Cross,
   Train,
-  X
+  X,
 } from 'lucide-react';
 import { MapRegion, POI, Coordinates } from '../types';
 import { getDistanceMeters } from '../engine/offlineRouter';
@@ -42,25 +43,27 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   if (!isOpen) return null;
 
   const allPois = [...activeRegion.pois, ...savedLocations];
-  const uniquePois = Array.from(new Map(allPois.map((p) => [p.id, p])).values());
+  const uniquePois = Array.from(
+    new Map(allPois.map((p) => [p.id, p])).values()
+  );
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'college':
-        return <GraduationCap size={16} className="text-[#FFD400]" />;
+        return <GraduationCap size={17} className="text-[#FFD400]" />;
       case 'home':
-        return <Home size={16} className="text-[#22C55E]" />;
+        return <Home size={17} className="text-[#22C55E]" />;
       case 'work':
       case 'tech_park':
-        return <Building2 size={16} className="text-[#3B82F6]" />;
+        return <Building2 size={17} className="text-[#3B82F6]" />;
       case 'hospital':
-        return <Cross size={16} className="text-[#EF4444]" />;
+        return <Cross size={17} className="text-[#EF4444]" />;
       case 'fuel':
-        return <Fuel size={16} className="text-[#F59E0B]" />;
+        return <Fuel size={17} className="text-[#F59E0B]" />;
       case 'transit':
-        return <Train size={16} className="text-purple-400" />;
+        return <Train size={17} className="text-[#A78BFA]" />;
       default:
-        return <MapPin size={16} className="text-[#FFD400]" />;
+        return <MapPin size={17} className="text-[#FFD400]" />;
     }
   };
 
@@ -70,150 +73,229 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   };
 
   const filteredPois = uniquePois.filter((poi) => {
+    const normalizedQuery = query.trim().toLowerCase();
+
     const matchesSearch =
-      poi.name.toLowerCase().includes(query.toLowerCase()) ||
-      poi.address.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || poi.category === selectedCategory;
+      !normalizedQuery ||
+      poi.name.toLowerCase().includes(normalizedQuery) ||
+      poi.address.toLowerCase().includes(normalizedQuery);
+
+    const matchesCategory =
+      selectedCategory === 'all' || poi.category === selectedCategory;
+
     return matchesSearch && matchesCategory;
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#08090A] text-[#F5F7F8] flex flex-col p-4 select-none animate-in fade-in duration-200">
-      {/* Top Mobile Search Header */}
-      <div className="flex items-center gap-2 pb-3 border-b border-[#2B2F33]">
-        <button
-          onClick={onClose}
-          className="p-2.5 rounded-2xl bg-[#191C1F] hover:bg-[#22262A] text-[#A4A9AE] hover:text-[#F5F7F8] transition-colors"
-          title="Back"
-        >
-          <ArrowLeft size={18} />
-        </button>
+    <div className="fixed inset-0 z-50 bg-[#08090A] text-[#F5F7F8] flex flex-col select-none animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-[#2B2F33]/80">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={onClose}
+            className="navx-icon-btn flex h-11 w-11 items-center justify-center rounded-2xl bg-[#111315] border border-[#2B2F33] text-[#A4A9AE] transition-all duration-200 hover:bg-[#191C1F] hover:text-[#F5F7F8] active:scale-95"
+            title="Back"
+            aria-label="Back"
+          >
+            <ArrowLeft size={19} />
+          </button>
 
-        <div className="flex-1 relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A4A9AE]" />
-          <input
-            type="text"
-            autoFocus
-            placeholder="Search destination, college, road..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-[#191C1F] border border-[#2B2F33] focus:border-[#FFD400] rounded-2xl pl-10 pr-9 py-2.5 text-xs text-[#F5F7F8] placeholder-[#6F757B] focus:outline-none transition-colors"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A4A9AE] hover:text-white"
-            >
-              <X size={15} />
-            </button>
-          )}
+          <div className="flex-1">
+            <div className="relative">
+              <Search
+                size={17}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6F757B] pointer-events-none"
+              />
+
+              <input
+                type="text"
+                autoFocus
+                placeholder="Where to?"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full h-11 bg-[#111315] border border-[#2B2F33] focus:border-[#FFD400] rounded-2xl pl-10 pr-10 text-sm font-medium text-[#F5F7F8] placeholder-[#6F757B] focus:outline-none transition-all duration-200"
+                aria-label="Search destination"
+              />
+
+              {query && (
+                <button
+                  onClick={() => setQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center text-[#6F757B] hover:text-[#F5F7F8] hover:bg-[#22262A] active:scale-90 transition-all"
+                  aria-label="Clear search"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              onClose();
+              onOpenVoice();
+            }}
+            className="h-11 w-11 rounded-2xl bg-[#FFD400] text-black flex items-center justify-center shadow-[0_6px_18px_rgba(255,212,0,0.18)] transition-all duration-200 hover:bg-[#F5C900] active:scale-95"
+            title="Voice Search"
+            aria-label="Voice Search"
+          >
+            <Mic size={19} />
+          </button>
         </div>
 
-        <button
-          onClick={() => {
-            onClose();
-            onOpenVoice();
-          }}
-          className="p-2.5 rounded-2xl bg-[#FFD400] text-black hover:bg-[#e6bf00] transition-colors flex-shrink-0 shadow-lg shadow-[rgba(255,212,0,0.2)]"
-          title="Voice Search"
-        >
-          <Mic size={18} />
-        </button>
+        {/* Search Context */}
+        <div className="flex items-center gap-2 mt-3 px-1">
+          <MapPin size={13} className="text-[#3B82F6]" />
+          <span className="text-[11px] text-[#A4A9AE]">
+            Searching within
+          </span>
+          <span className="text-[11px] font-semibold text-[#F5F7F8] truncate">
+            {activeRegion.name}
+          </span>
+          <span className="ml-auto text-[10px] text-[#6F757B]">
+            Offline ready
+          </span>
+        </div>
       </div>
 
-      {/* Category Filter Pills */}
-      <div className="flex gap-1.5 overflow-x-auto py-2.5 scrollbar-none">
-        {[
-          { id: 'all', label: 'All Places' },
-          { id: 'college', label: 'Colleges' },
-          { id: 'tech_park', label: 'Tech Parks' },
-          { id: 'home', label: 'Saved Home' },
-          { id: 'hospital', label: 'Hospitals' },
-          { id: 'fuel', label: 'Fuel & EV' },
-          { id: 'transit', label: 'Transit' },
-        ].map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all font-display ${
-              selectedCategory === cat.id
-                ? 'bg-[#FFD400] text-black font-bold shadow-md'
-                : 'bg-[#191C1F] text-[#A4A9AE] hover:text-white border border-[#2B2F33]'
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
+      {/* Category Filters */}
+      <div className="px-4 pt-3">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {[
+            { id: 'all', label: 'All Places' },
+            { id: 'college', label: 'Colleges' },
+            { id: 'tech_park', label: 'Tech Parks' },
+            { id: 'home', label: 'Saved Home' },
+            { id: 'hospital', label: 'Hospitals' },
+            { id: 'fuel', label: 'Fuel & EV' },
+            { id: 'transit', label: 'Transit' },
+          ].map((cat) => {
+            const active = selectedCategory === cat.id;
+
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`h-9 px-3.5 rounded-full text-[11px] font-semibold whitespace-nowrap border transition-all duration-200 active:scale-95 ${
+                  active
+                    ? 'bg-[#FFD400] text-black border-[#FFD400] shadow-[0_4px_14px_rgba(255,212,0,0.14)]'
+                    : 'bg-[#111315] text-[#A4A9AE] border-[#2B2F33] hover:bg-[#191C1F] hover:text-[#F5F7F8]'
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Results Header */}
-      <div className="flex items-center justify-between py-1 text-[11px] text-[#A4A9AE] font-display">
-        <span>{query ? `Search Results for "${query}"` : 'Nearby & Saved Destinations'}</span>
-        <span>{filteredPois.length} places found</span>
+      <div className="px-4 pt-4 pb-2 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.14em] font-bold text-[#6F757B]">
+            {query ? 'Search results' : 'Nearby destinations'}
+          </p>
+
+          <p className="mt-1 text-sm font-semibold text-[#F5F7F8]">
+            {query ? `"${query}"` : 'Ready to navigate'}
+          </p>
+        </div>
+
+        <span className="text-[10px] font-medium text-[#6F757B] whitespace-nowrap">
+          {filteredPois.length} {filteredPois.length === 1 ? 'place' : 'places'}
+        </span>
       </div>
 
-      {/* Results List */}
-      <div className="flex-1 overflow-y-auto space-y-2 pt-1 pb-4">
+      {/* Results */}
+      <div className="flex-1 overflow-y-auto px-4 pb-6">
         {filteredPois.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-[#A4A9AE] space-y-2">
-            <Search size={32} className="text-[#6F757B]" />
-            <p className="text-xs font-semibold text-[#F5F7F8]">No matching destinations found</p>
-            <p className="text-[11px]">Try searching for "College", "Home", "Highway", or "Labs"</p>
+          <div className="min-h-[280px] flex flex-col items-center justify-center text-center px-8">
+            <div className="h-16 w-16 rounded-2xl bg-[#111315] border border-[#2B2F33] flex items-center justify-center mb-4">
+              <Search size={25} className="text-[#6F757B]" />
+            </div>
+
+            <p className="text-sm font-bold text-[#F5F7F8]">
+              No destinations found
+            </p>
+
+            <p className="text-xs text-[#6F757B] mt-1.5 leading-relaxed max-w-[260px]">
+              Try a different place, address, college, road, or category.
+            </p>
+
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="mt-4 px-4 py-2 rounded-xl bg-[#191C1F] border border-[#2B2F33] text-[11px] font-semibold text-[#A4A9AE] hover:text-[#F5F7F8] hover:border-[#FFD400]/40 transition-all active:scale-95"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         ) : (
-          filteredPois.map((poi) => {
-            const distance = calculateDistanceKm(poi.coordinate);
-            return (
-              <div
-                key={poi.id}
-                onClick={() => {
-                  onSelectDestination(poi);
-                  onClose();
-                }}
-                className="p-3.5 rounded-2xl bg-[#111315] hover:bg-[#191C1F] border border-[#2B2F33] hover:border-[#FFD400]/50 cursor-pointer transition-all flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2.5 rounded-xl bg-[#191C1F] group-hover:bg-[#FFD400]/20 flex-shrink-0 transition-colors">
-                    {getCategoryIcon(poi.category)}
-                  </div>
+          <div className="space-y-2">
+            {filteredPois.map((poi) => {
+              const distance = calculateDistanceKm(poi.coordinate);
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-[#F5F7F8] group-hover:text-[#FFD400] truncate block transition-colors">
-                        {poi.name}
-                      </span>
-                      {poi.isSaved && (
-                        <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#FFD400]/15 text-[#FFD400] border border-[#FFD400]/30 font-display">
-                          <Star size={9} className="fill-[#FFD400]" />
-                          SAVED
-                        </span>
-                      )}
+              return (
+                <button
+                  key={poi.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectDestination(poi);
+                    onClose();
+                  }}
+                  className="w-full text-left p-3.5 rounded-2xl bg-[#111315] border border-[#2B2F33] hover:bg-[#191C1F] hover:border-[#FFD400]/40 active:scale-[0.99] transition-all duration-200 group"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* POI Icon */}
+                    <div className="h-11 w-11 rounded-xl bg-[#191C1F] border border-[#2B2F33] group-hover:border-[#FFD400]/30 flex items-center justify-center flex-shrink-0 transition-all">
+                      {getCategoryIcon(poi.category)}
                     </div>
-                    <span className="text-[11px] text-[#A4A9AE] truncate block mt-0.5">
-                      {poi.address}
-                    </span>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="text-right">
-                    <span className="text-xs font-black text-[#F5F7F8] font-display block">
-                      {distance} km
-                    </span>
-                    <span className="text-[10px] text-[#22C55E] font-medium block">
-                      Offline Ready
-                    </span>
-                  </div>
+                    {/* Destination Info */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-bold text-[#F5F7F8] truncate group-hover:text-[#FFD400] transition-colors">
+                          {poi.name}
+                        </span>
 
-                  <div className="p-2 rounded-xl bg-[#191C1F] group-hover:bg-[#FFD400] text-[#A4A9AE] group-hover:text-black transition-all">
-                    <Navigation size={14} />
+                        {poi.isSaved && (
+                          <span className="inline-flex items-center gap-1 flex-shrink-0 px-1.5 py-0.5 rounded-md bg-[#FFD400]/10 border border-[#FFD400]/20 text-[8px] font-bold tracking-wide text-[#FFD400]">
+                            <Star size={8} className="fill-[#FFD400]" />
+                            SAVED
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-[#A4A9AE] truncate mt-1">
+                        {poi.address}
+                      </p>
+
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[10px] font-semibold text-[#F5F7F8]">
+                          {distance} km
+                        </span>
+
+                        <span className="h-1 w-1 rounded-full bg-[#2B2F33]" />
+
+                        <span className="flex items-center gap-1 text-[10px] text-[#22C55E] font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]" />
+                          Offline ready
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Navigate */}
+                    <div className="h-10 w-10 rounded-xl bg-[#191C1F] border border-[#2B2F33] flex items-center justify-center text-[#A4A9AE] group-hover:bg-[#FFD400] group-hover:border-[#FFD400] group-hover:text-black transition-all flex-shrink-0">
+                      <Navigation size={15} />
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
   );
 };
+```

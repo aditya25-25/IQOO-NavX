@@ -1,3 +1,4 @@
+```ts
 import {
   Coordinates,
   GPSQuality,
@@ -167,6 +168,25 @@ export class PositionFusionManager {
 
       lastUpdated: Date.now(),
     };
+  }
+
+  // Reset the fused position to a new coordinate.
+  // Used when changing regions or restarting a demo route.
+  public resetPosition(target: Coordinates) {
+    this.cancelGpsRecovery();
+
+    this.currentPosition = {
+      ...target,
+    };
+
+    this.heading = 0;
+    this.speed = 0;
+    this.accuracyMeters = 4.0;
+    this.gpsQuality = 'strong';
+    this.isSensorAssisted = false;
+    this.isRecoverySmoothing = false;
+
+    this.notify();
   }
 
   // Update real or simulated GPS reading

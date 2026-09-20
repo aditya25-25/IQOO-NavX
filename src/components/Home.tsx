@@ -16,9 +16,18 @@ import {
   Wifi,
 } from "lucide-react";
 
-import { BatteryState, MapRegion, POI, PositionState } from "../types";
+import {
+  BatteryState,
+  MapRegion,
+  POI,
+  PositionState,
+} from "../types";
+
+import {
+  NavigationProgress,
+} from "../engine/navigationController";
+
 import { MapView } from "./MapView";
-import { NavigationProgress } from "../engine/navigationController";
 
 interface HomeProps {
   activeRegion: MapRegion;
@@ -56,22 +65,19 @@ const Home: React.FC<HomeProps> = ({
   onAddLocation,
   onSelectDestination,
 }) => {
-  /*
-   * ============================================================
-   * REAL NAVX DATA
-   * ============================================================
-   */
-
   const batteryPercent = Math.max(
     0,
-    Math.min(100, Math.round(batteryState.level * 100))
+    Math.min(
+      100,
+      Math.round(batteryState.level * 100)
+    )
   );
 
-  const currentPosition = posState.currentPosition;
+  const currentPosition =
+    posState.currentPosition;
 
   /*
-   * Try to find actual Home / College POIs from the active region.
-   * Falls back to saved locations if necessary.
+   * Find the real Home POI.
    */
   const homePoi =
     activeRegion.pois.find(
@@ -85,6 +91,9 @@ const Home: React.FC<HomeProps> = ({
         poi.name?.toLowerCase() === "home"
     );
 
+  /*
+   * Find the real College POI.
+   */
   const collegePoi =
     activeRegion.pois.find(
       (poi) =>
@@ -97,15 +106,12 @@ const Home: React.FC<HomeProps> = ({
         poi.name?.toLowerCase() === "college"
     );
 
-  const hasDestination = Boolean(navProgress.activeRoute);
+  const hasRoute =
+    navProgress.activeRoute !== null;
 
-  /*
-   * ============================================================
-   * DESTINATION SELECTION
-   * ============================================================
-   */
-
-  const selectDestination = (poi?: POI) => {
+  const selectDestination = (
+    poi?: POI
+  ) => {
     if (!poi) {
       onAddLocation?.();
       return;
@@ -117,17 +123,20 @@ const Home: React.FC<HomeProps> = ({
   return (
     <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto bg-[#050706] text-white">
       <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#080b0a]">
+
         {/* =====================================================
             HEADER
         ===================================================== */}
 
         <header className="px-5 pb-3 pt-5">
           <div className="flex items-start justify-between">
-            {/* Logo + Status */}
+
             <div>
               <h1 className="text-[30px] font-extrabold tracking-[-1.5px]">
                 NAV
-                <span className="text-lime-400">X</span>
+                <span className="text-lime-400">
+                  X
+                </span>
               </h1>
 
               <div className="mt-1.5 flex items-center gap-2 text-[11px]">
@@ -136,7 +145,9 @@ const Home: React.FC<HomeProps> = ({
                   GPS Active
                 </span>
 
-                <span className="text-gray-700">•</span>
+                <span className="text-gray-700">
+                  •
+                </span>
 
                 <span
                   className={
@@ -145,13 +156,15 @@ const Home: React.FC<HomeProps> = ({
                       : "text-gray-400"
                   }
                 >
-                  {isOffline ? "Offline Ready" : "Online"}
+                  {isOffline
+                    ? "Offline Ready"
+                    : "Online Ready"}
                 </span>
               </div>
             </div>
 
-            {/* Battery + More */}
             <div className="flex items-center gap-2">
+
               <div className="flex items-center gap-2 rounded-full border border-lime-400/30 bg-[#111713] px-3.5 py-2">
                 <BatteryMedium
                   size={17}
@@ -170,10 +183,12 @@ const Home: React.FC<HomeProps> = ({
               <button
                 type="button"
                 aria-label="More options"
+                onClick={onSettings}
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-[#11181a] text-gray-300 transition hover:bg-[#17201c] hover:text-white"
               >
                 <MoreVertical size={19} />
               </button>
+
             </div>
           </div>
         </header>
@@ -206,7 +221,10 @@ const Home: React.FC<HomeProps> = ({
                 onVoice?.();
               }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
+                if (
+                  event.key === "Enter" ||
+                  event.key === " "
+                ) {
                   event.preventDefault();
                   event.stopPropagation();
                   onVoice?.();
@@ -224,37 +242,58 @@ const Home: React.FC<HomeProps> = ({
         ===================================================== */}
 
         <section className="relative mx-5 mt-5 h-[390px] overflow-hidden rounded-[28px] border border-white/10 bg-[#10191d]">
+
           <MapView
-            currentPosition={currentPosition}
+            currentPosition={
+              currentPosition
+            }
             positionState={posState}
-            activeRoute={navProgress.activeRoute}
+            activeRoute={
+              navProgress.activeRoute
+            }
             activeRegion={activeRegion}
-            savedLocations={savedLocations}
-            isUltraMode={batteryState.isUltraMode}
+            savedLocations={
+              savedLocations
+            }
+            isUltraMode={
+              batteryState.isUltraMode
+            }
             onSelectPOI={(poi) => {
-              onSelectDestination?.(poi);
+              onSelectDestination?.(
+                poi
+              );
             }}
           />
 
-          {/* Map status overlay */}
+          {/* Map status */}
+
           <div className="pointer-events-none absolute left-4 right-4 top-4 flex items-center justify-between">
+
             <div className="rounded-full border border-white/20 bg-black/60 px-4 py-2 backdrop-blur-md">
               <span className="text-[11px] font-semibold tracking-wide text-white">
-                {isOffline ? "OFFLINE MAP" : "MAP READY"}
+                {isOffline
+                  ? "OFFLINE MAP"
+                  : "MAP READY"}
               </span>
             </div>
 
             <div className="flex items-center gap-2 rounded-full border border-lime-400/50 bg-black/60 px-4 py-2 backdrop-blur-md">
-              <Wifi size={13} className="text-lime-400" />
+              <Wifi
+                size={13}
+                className="text-lime-400"
+              />
 
               <span className="text-[11px] font-medium text-lime-300">
                 Sensor Assisted
               </span>
             </div>
+
           </div>
 
-          {/* Current position indicator */}
+          {/* Current position visual */}
+
           <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+
             <div className="absolute -inset-12 rounded-full bg-lime-400/[0.05]" />
 
             <div className="absolute -inset-7 rounded-full bg-lime-400/[0.08]" />
@@ -264,9 +303,11 @@ const Home: React.FC<HomeProps> = ({
             <div className="relative flex h-10 w-10 items-center justify-center rounded-full border-4 border-lime-400 bg-[#d8ff9a] shadow-[0_0_25px_rgba(163,255,18,0.85)]">
               <div className="h-3 w-3 rounded-full bg-lime-600" />
             </div>
+
           </div>
 
-          {/* Recenter */}
+          {/* Recenter UI */}
+
           <button
             type="button"
             onClick={onRecenter}
@@ -276,8 +317,10 @@ const Home: React.FC<HomeProps> = ({
             <LocateFixed size={20} />
           </button>
 
-          {/* Zoom controls - visual controls */}
+          {/* Zoom UI */}
+
           <div className="absolute bottom-4 right-4 overflow-hidden rounded-2xl border border-white/20 bg-black/60 backdrop-blur-md">
+
             <button
               type="button"
               aria-label="Zoom in"
@@ -293,13 +336,20 @@ const Home: React.FC<HomeProps> = ({
             >
               <Minus size={19} />
             </button>
+
           </div>
 
-          {/* Current Location */}
+          {/* Current location */}
+
           <div className="absolute bottom-4 left-4 rounded-2xl border border-white/10 bg-black/70 px-3.5 py-3 backdrop-blur-xl">
+
             <div className="flex items-center gap-3">
+
               <div className="flex h-10 w-10 items-center justify-center rounded-full border border-lime-400/30 bg-lime-400/10">
-                <MapPin size={20} className="text-lime-400" />
+                <MapPin
+                  size={20}
+                  className="text-lime-400"
+                />
               </div>
 
               <div>
@@ -313,8 +363,11 @@ const Home: React.FC<HomeProps> = ({
                     : "Detecting location..."}
                 </p>
               </div>
+
             </div>
+
           </div>
+
         </section>
 
         {/* =====================================================
@@ -322,7 +375,9 @@ const Home: React.FC<HomeProps> = ({
         ===================================================== */}
 
         <section className="px-5 pt-6">
+
           <div className="mb-4 flex items-center justify-between">
+
             <h2 className="text-[18px] font-bold text-white">
               Quick destinations
             </h2>
@@ -333,19 +388,32 @@ const Home: React.FC<HomeProps> = ({
               className="flex items-center gap-2 text-sm font-semibold text-lime-400 transition hover:text-lime-300"
             >
               Manage
-              <span className="text-lg">›</span>
+              <span className="text-lg">
+                ›
+              </span>
             </button>
+
           </div>
 
           <div className="grid grid-cols-3 gap-3">
+
             {/* HOME */}
+
             <button
               type="button"
-              onClick={() => selectDestination(homePoi)}
+              onClick={() =>
+                selectDestination(
+                  homePoi
+                )
+              }
               className="flex min-h-[150px] flex-col items-center justify-center gap-4 rounded-[22px] border border-lime-400/20 bg-[#0d1913] p-4 transition hover:border-lime-400/40 hover:bg-[#102017]"
             >
+
               <div className="flex h-14 w-14 items-center justify-center rounded-full border border-lime-400/30 bg-lime-400/10">
-                <HomeIcon size={24} className="text-lime-400" />
+                <HomeIcon
+                  size={24}
+                  className="text-lime-400"
+                />
               </div>
 
               <span className="text-[16px] font-semibold text-white">
@@ -353,18 +421,25 @@ const Home: React.FC<HomeProps> = ({
               </span>
 
               {!homePoi && (
-                <span className="text-center text-[9px] text-gray-500">
+                <span className="text-[9px] text-gray-500">
                   Not saved
                 </span>
               )}
+
             </button>
 
             {/* COLLEGE */}
+
             <button
               type="button"
-              onClick={() => selectDestination(collegePoi)}
+              onClick={() =>
+                selectDestination(
+                  collegePoi
+                )
+              }
               className="flex min-h-[150px] flex-col items-center justify-center gap-4 rounded-[22px] border border-lime-400/20 bg-[#0d1913] p-4 transition hover:border-lime-400/40 hover:bg-[#102017]"
             >
+
               <div className="flex h-14 w-14 items-center justify-center rounded-full border border-lime-400/30 bg-lime-400/10">
                 <GraduationCap
                   size={24}
@@ -377,26 +452,36 @@ const Home: React.FC<HomeProps> = ({
               </span>
 
               {!collegePoi && (
-                <span className="text-center text-[9px] text-gray-500">
+                <span className="text-[9px] text-gray-500">
                   Not saved
                 </span>
               )}
+
             </button>
 
             {/* ADD */}
+
             <button
               type="button"
-              onClick={onAddLocation}
+              onClick={
+                onAddLocation
+              }
               className="flex min-h-[150px] flex-col items-center justify-center gap-4 rounded-[22px] border border-dashed border-white/20 bg-[#0a1113] p-4 transition hover:border-lime-400/30 hover:bg-[#0d1713]"
             >
+
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#162126]">
-                <Plus size={25} className="text-gray-400" />
+                <Plus
+                  size={25}
+                  className="text-gray-400"
+                />
               </div>
 
               <span className="text-[16px] font-medium text-gray-400">
                 Add
               </span>
+
             </button>
+
           </div>
         </section>
 
@@ -405,12 +490,17 @@ const Home: React.FC<HomeProps> = ({
         ===================================================== */}
 
         <section className="px-5 pt-5">
+
           <button
             type="button"
-            onClick={onStartNavigation}
+            onClick={
+              onStartNavigation
+            }
             className="group flex w-full items-center justify-between rounded-[24px] bg-lime-400 px-5 py-5 text-black shadow-[0_0_35px_rgba(163,255,18,0.18)] transition hover:bg-lime-300 active:scale-[0.98]"
           >
+
             <div className="flex items-center gap-4">
+
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black">
                 <Navigation
                   size={22}
@@ -419,22 +509,27 @@ const Home: React.FC<HomeProps> = ({
               </div>
 
               <div className="text-left">
+
                 <p className="text-[19px] font-extrabold">
                   Start Navigation
                 </p>
 
                 <p className="mt-0.5 text-xs font-medium opacity-70">
-                  {hasDestination
+                  {hasRoute
                     ? "Ready to navigate"
                     : "Select a destination first"}
                 </p>
+
               </div>
+
             </div>
 
             <span className="text-3xl transition group-hover:translate-x-1">
               →
             </span>
+
           </button>
+
         </section>
 
         {/* =====================================================
@@ -442,7 +537,7 @@ const Home: React.FC<HomeProps> = ({
         ===================================================== */}
 
         <nav className="mt-7 flex items-center justify-around border-t border-white/10 bg-[#080b0a] px-5 pb-6 pt-5">
-          {/* MAP */}
+
           <button
             type="button"
             className="flex min-w-[70px] flex-col items-center gap-2 text-lime-400"
@@ -459,7 +554,6 @@ const Home: React.FC<HomeProps> = ({
             <span className="h-0.5 w-12 rounded-full bg-lime-400" />
           </button>
 
-          {/* SAVED */}
           <button
             type="button"
             onClick={onSaved}
@@ -474,7 +568,6 @@ const Home: React.FC<HomeProps> = ({
             <span className="h-0.5 w-12 rounded-full bg-transparent" />
           </button>
 
-          {/* SETTINGS */}
           <button
             type="button"
             onClick={onSettings}
@@ -488,7 +581,9 @@ const Home: React.FC<HomeProps> = ({
 
             <span className="h-0.5 w-12 rounded-full bg-transparent" />
           </button>
+
         </nav>
+
       </div>
     </main>
   );

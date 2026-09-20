@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { RecentRouteRow, RecentRouteInsert } from '../../types/database';
 
 export interface RecentRoutesResult<T> {
@@ -11,6 +11,9 @@ export const recentRoutesService = {
    * Fetch recent routes for current user.
    */
   async fetchRecentRoutes(): Promise<RecentRoutesResult<RecentRouteRow[]>> {
+    if (!isSupabaseConfigured) {
+      return { data: [], error: null };
+    }
     try {
       const { data, error } = await supabase
         .from('recent_routes')
@@ -19,7 +22,7 @@ export const recentRoutesService = {
         .limit(20);
 
       if (error) throw error;
-      return { data: data || [], error: null };
+      return { data: (data as RecentRouteRow[]) || [], error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch recent routes';
       return { data: null, error: message };
@@ -34,6 +37,9 @@ export const recentRoutesService = {
     distanceMeters: number,
     durationSeconds: number
   ): Promise<RecentRoutesResult<RecentRouteRow>> {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: null };
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -58,7 +64,7 @@ export const recentRoutesService = {
         .single();
 
       if (error) throw error;
-      return { data, error: null };
+      return { data: data as RecentRouteRow, error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to record recent route';
       return { data: null, error: message };

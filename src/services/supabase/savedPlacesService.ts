@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { SavedPlaceRow, SavedPlaceInsert, SavedPlaceUpdate } from '../../types/database';
 
 export interface SavedPlacesResult<T> {
@@ -11,6 +11,9 @@ export const savedPlacesService = {
    * Fetch all saved places for the current authenticated user.
    */
   async fetchSavedPlaces(): Promise<SavedPlacesResult<SavedPlaceRow[]>> {
+    if (!isSupabaseConfigured) {
+      return { data: [], error: null };
+    }
     try {
       const { data, error } = await supabase
         .from('saved_places')
@@ -29,6 +32,9 @@ export const savedPlacesService = {
    * Insert a new saved place.
    */
   async createSavedPlace(name: string, latitude: number, longitude: number): Promise<SavedPlacesResult<SavedPlaceRow>> {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: 'Supabase is not configured' };
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -49,7 +55,7 @@ export const savedPlacesService = {
         .single();
 
       if (error) throw error;
-      return { data, error: null };
+      return { data: data as SavedPlaceRow, error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create saved place';
       return { data: null, error: message };
@@ -60,6 +66,9 @@ export const savedPlacesService = {
    * Update an existing saved place.
    */
   async updateSavedPlace(id: string, updates: SavedPlaceUpdate): Promise<SavedPlacesResult<SavedPlaceRow>> {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: 'Supabase is not configured' };
+    }
     try {
       const { data, error } = await supabase
         .from('saved_places')
@@ -69,7 +78,7 @@ export const savedPlacesService = {
         .single();
 
       if (error) throw error;
-      return { data, error: null };
+      return { data: data as SavedPlaceRow, error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update saved place';
       return { data: null, error: message };
@@ -80,6 +89,9 @@ export const savedPlacesService = {
    * Delete a saved place by ID.
    */
   async deleteSavedPlace(id: string): Promise<SavedPlacesResult<boolean>> {
+    if (!isSupabaseConfigured) {
+      return { data: true, error: null };
+    }
     try {
       const { error } = await supabase
         .from('saved_places')

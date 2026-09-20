@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 export interface AuthState {
@@ -9,7 +9,14 @@ export interface AuthState {
 }
 
 export const authService = {
+  isConfigured(): boolean {
+    return isSupabaseConfigured;
+  },
+
   async signUp(email: string, password: string) {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: 'Supabase cloud sync is not configured. Using offline guest mode.' };
+    }
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -24,6 +31,9 @@ export const authService = {
   },
 
   async signIn(email: string, password: string) {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: 'Supabase cloud sync is not configured. Using offline guest mode.' };
+    }
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -38,6 +48,9 @@ export const authService = {
   },
 
   async signOut() {
+    if (!isSupabaseConfigured) {
+      return { error: null };
+    }
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -49,6 +62,9 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<User | null> {
+    if (!isSupabaseConfigured) {
+      return null;
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       return user;
@@ -58,6 +74,9 @@ export const authService = {
   },
 
   async getSession(): Promise<Session | null> {
+    if (!isSupabaseConfigured) {
+      return null;
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       return session;
@@ -67,6 +86,13 @@ export const authService = {
   },
 
   onAuthStateChange(callback: (event: AuthChangeEvent, session: Session | null) => void) {
-    return supabase.auth.onAuthStateChange(callback);
+    if (!isSupabaseConfigured) {
+      return { data: { subscription: { unsubscribe: () => {} } } };
+    }
+    try {
+      return supabase.auth.onAuthStateChange(callback);
+    } catch {
+      return { data: { subscription: { unsubscribe: () => {} } } };
+    }
   },
 };

@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { NavigationPreferencesRow, NavigationPreferencesInsert, NavigationPreferencesUpdate } from '../../types/database';
 
 export interface PreferencesResult<T> {
@@ -11,6 +11,9 @@ export const preferencesService = {
    * Fetch navigation preferences for current user.
    */
   async fetchPreferences(): Promise<PreferencesResult<NavigationPreferencesRow>> {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: null };
+    }
     try {
       const { data, error } = await supabase
         .from('navigation_preferences')
@@ -19,7 +22,7 @@ export const preferencesService = {
         .maybeSingle();
 
       if (error) throw error;
-      return { data, error: null };
+      return { data: data as NavigationPreferencesRow | null, error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch preferences';
       return { data: null, error: message };
@@ -33,6 +36,9 @@ export const preferencesService = {
     voice_enabled?: boolean;
     dark_mode?: boolean;
   }): Promise<PreferencesResult<NavigationPreferencesRow>> {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: null };
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -55,12 +61,12 @@ export const preferencesService = {
         const { data, error } = await supabase
           .from('navigation_preferences')
           .update(updatePayload)
-          .eq('id', existing.id)
+          .eq('id', (existing as { id: string }).id)
           .select()
           .single();
 
         if (error) throw error;
-        return { data, error: null };
+        return { data: data as NavigationPreferencesRow, error: null };
       } else {
         const insertPayload: NavigationPreferencesInsert = {
           user_id: user.id,
@@ -75,7 +81,7 @@ export const preferencesService = {
           .single();
 
         if (error) throw error;
-        return { data, error: null };
+        return { data: data as NavigationPreferencesRow, error: null };
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to save preferences';

@@ -276,19 +276,19 @@ export const App: React.FC = () => {
         return;
       }
 
-      setIsSavedPlacesLoading(true);
-      setSavedPlacesError(null);
+      try {
+        setIsSavedPlacesLoading(true);
+        setSavedPlacesError(null);
 
-      const { data, error } =
-        await savedPlacesService.fetchSavedPlaces();
+        const { data, error } =
+          await savedPlacesService.fetchSavedPlaces();
 
-      setIsSavedPlacesLoading(false);
+        setIsSavedPlacesLoading(false);
 
-      if (error) {
-        setSavedPlacesError(error);
-        showToast(`Cloud Sync: ${error}`);
-      } else if (data) {
-        if (data.length > 0) {
+        if (error) {
+          setSavedPlacesError(error);
+          showToast(`Cloud Sync: ${error}`);
+        } else if (data && data.length > 0) {
           const cloudPois: POI[] = data.map((row) => ({
             id: row.id,
             name: row.name,
@@ -311,6 +311,9 @@ export const App: React.FC = () => {
             )
           );
         }
+      } catch (err) {
+        setIsSavedPlacesLoading(false);
+        console.warn('[IQOO NavX] Cloud saved places sync error:', err);
       }
     },
     [activeRegion, showToast]
@@ -319,13 +322,17 @@ export const App: React.FC = () => {
   const loadCloudPreferences = useCallback(
     async (user: User | null) => {
       if (!user) return;
-      const { data } =
-        await preferencesService.fetchPreferences();
+      try {
+        const { data } =
+          await preferencesService.fetchPreferences();
 
-      if (data && data.voice_enabled !== undefined) {
-        const muted = !data.voice_enabled;
-        setIsVoiceMuted(muted);
-        voiceEngine.setMuted(muted);
+        if (data && data.voice_enabled !== undefined) {
+          const muted = !data.voice_enabled;
+          setIsVoiceMuted(muted);
+          voiceEngine.setMuted(muted);
+        }
+      } catch (err) {
+        console.warn('[IQOO NavX] Cloud preferences sync error:', err);
       }
     },
     []
@@ -336,28 +343,37 @@ export const App: React.FC = () => {
   // =========================================================
 
   useEffect(() => {
-    authService.getCurrentUser().then((user) => {
-      setCurrentUser(user);
-      if (user) {
-        loadCloudSavedPlaces(user);
-        loadCloudPreferences(user);
-      }
-    });
+    try {
+      authService
+        .getCurrentUser()
+        .then((user) => {
+          setCurrentUser(user);
+          if (user) {
+            loadCloudSavedPlaces(user);
+            loadCloudPreferences(user);
+          }
+        })
+        .catch((err) => {
+          console.warn('[IQOO NavX] Auth check fallback:', err);
+        });
 
-    const { data: authListener } = authService.onAuthStateChange(
-      (_event, session) => {
-        const user = session?.user ?? null;
-        setCurrentUser(user);
-        if (user) {
-          loadCloudSavedPlaces(user);
-          loadCloudPreferences(user);
+      const { data: authListener } = authService.onAuthStateChange(
+        (_event, session) => {
+          const user = session?.user ?? null;
+          setCurrentUser(user);
+          if (user) {
+            loadCloudSavedPlaces(user);
+            loadCloudPreferences(user);
+          }
         }
-      }
-    );
+      );
 
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
+      return () => {
+        authListener?.subscription?.unsubscribe?.();
+      };
+    } catch (err) {
+      console.warn('[IQOO NavX] Auth listener initialization fallback:', err);
+    }
   }, [loadCloudSavedPlaces, loadCloudPreferences]);
 
   // =========================================================

@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 import {
   CornerUpLeft,
@@ -322,4 +321,3 @@ export const TurnGuidanceHUD: React.FC<TurnGuidanceHUDProps> = ({
     </div>
   );
 };
-```

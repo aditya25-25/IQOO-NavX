@@ -1,4 +1,3 @@
-```tsx
 import React, { useState } from 'react';
 import {
   X,
@@ -761,4 +760,3 @@ export const NavXEngineDrawer: React.FC<NavXEngineDrawerProps> = ({
     </div>
   );
 };
-```
